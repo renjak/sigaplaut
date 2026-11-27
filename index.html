@@ -413,9 +413,10 @@ function drawDepth(d) {
  depthLayer.clearLayers();
  if (!d) return;
  const mark = (x, color, label) => L.circleMarker(x.at, { radius: 9, color: '#0b2545', weight: 2, fillColor: color, fillOpacity: .95 }).bindTooltip(label + ` (${x.min === 0 ? 'daratan' : fmt1(x.min) + ' m'})`).addTo(depthLayer);
- d.land.forEach(x => mark(x, '#3b2a1a', 'Melintasi daratan'));
- d.red.forEach(x => mark(x, COL.r, 'Bahaya kedangkalan'));
+ // Urutan: waspada di bawah, bahaya & daratan di atas agar tidak tertutup.
  d.amber.forEach(x => mark(x, COL.a, 'Waspada kedangkalan'));
+ d.red.forEach(x => mark(x, COL.r, 'Bahaya kedangkalan').bringToFront());
+ d.land.forEach(x => mark(x, '#3b2a1a', 'Melintasi daratan').bringToFront());
 }
 
 // ---------- pelabuhan BMKG terdekat ----------
