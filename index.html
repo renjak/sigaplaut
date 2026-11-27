@@ -49,6 +49,8 @@ button:disabled{opacity:.5;cursor:wait}
 .st .pill{font-weight:700;font-size:13px;padding:3px 10px;border-radius:99px;color:#fff;align-self:start}
 .st small{grid-column:1/-1;color:var(--muted);font-size:13px}
 .st .note{grid-column:1/-1;font-size:13px;color:#8a5a00;background:#fff6e0;border-radius:8px;padding:6px 8px;margin:4px 0 0}
+.st .note.dq{color:#7a2e2e;background:#fdeeee}
+.st .note.port{color:var(--navy);background:var(--sky)}
 .g{background:var(--g)}.a{background:var(--a)}.r{background:var(--r)}.x{background:var(--x)}
 .win{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
 .day{display:grid;gap:4px;flex:none;scroll-snap-align:start}
@@ -177,13 +179,14 @@ footer a,.card a{color:var(--sea)}
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/lib/route.js"></script>
 <script>
 {
 const $ = id => document.getElementById(id);
 const COL = { g: '#16a05a', a: '#e2a100', r: '#d33f3f', x: '#9aa7b6' };
 const LBL = { g: 'AMAN', a: 'WASPADA', r: 'TIDAK DISARANKAN', x: 'TANPA DATA' };
-const RANK = { x: 0, g: 1, a: 2, r: 3 };
-const STEP_NM = 20;
+const SR = window.SigapRoute;
+const { nm, buildSamples, keyOf } = SR;
 const fmt1 = v => (v == null || !Number.isFinite(v)) ? '–' : v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fmtN = v => (+v).toLocaleString('id-ID', { maximumFractionDigits: 2 });
 const fmtT = (ms, opt) => new Intl.DateTimeFormat('id-ID', Object.assign({ timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }, opt || {})).format(new Date(ms));
@@ -220,30 +223,6 @@ function parseCoord(str) {
  return v;
 }
 const fmtC = (v, isLat) => { const a = Math.abs(v), d = Math.floor(a), mm = ((a - d) * 60).toFixed(1); return d + '°' + mm + "'" + (isLat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')); };
-
-function nm(a, b) {
- const R = 3440.065, toR = Math.PI / 180;
- const dLat = (b[0] - a[0]) * toR, dLon = (b[1] - a[1]) * toR;
- const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLon / 2) ** 2;
- return 2 * R * Math.asin(Math.sqrt(h));
-}
-function buildSamples(wps) {
- const out = [];
- if (wps.length < 2) return out;
- let cum = 0;
- for (let i = 0; i < wps.length - 1; i++) {
-  const a = wps[i], b = wps[i + 1], d = nm(a, b), n = Math.max(1, Math.ceil(d / STEP_NM));
-  for (let k = 0; k < n; k++) {
-   const f = k / n;
-   out.push({ lat: a[0] + (b[0] - a[0]) * f, lon: a[1] + (b[1] - a[1]) * f, cum: cum + d * f, wp: k === 0 ? i : null, seg: i });
-  }
-  cum += d;
- }
- const last = wps[wps.length - 1];
- out.push({ lat: last[0], lon: last[1], cum, wp: wps.length - 1, seg: wps.length - 2 });
- return out;
-}
-const keyOf = samples => samples.map(p => p.lat.toFixed(2) + ',' + p.lon.toFixed(2)).join(';');
 
 // ---------- map ----------
 const map = L.map('map', { zoomControl: true }).setView([-5.5, 116], 5);
@@ -323,22 +302,23 @@ $('depart').value = toLocalInput(nextHour());
 // ---------- data ----------
 function normalize(j) {
  const t = (j.t || []).map(x => x * 1000);
- return j.points.map(p => ({ t, hx: p.hx, hn: p.hn, sw: p.sw, tp: p.tp, cur: p.cur, w: p.w, g: p.g }));
+ return j.points.map(p => ({ t, hx: p.hx, hn: p.hn, sw: p.sw, tp: p.tp, cur: p.cur, w: p.w, g: p.g, cell: p.cell || null, wm: p.wm || null }));
 }
 async function fetchData(samples) {
  const lat = samples.map(p => p.lat.toFixed(3)).join(','), lon = samples.map(p => p.lon.toFixed(3)).join(',');
  try {
-  const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`);
+  // no-cache: browser selalu bertanya ke server (cache CDN Vercel 30 menit tetap berlaku), jangan sajikan data basi dari cache browser.
+  const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`, { cache: 'no-cache' });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'gagal');
-  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], at: j.fetchedAt };
+  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, at: j.fetchedAt };
  } catch (e) {
   const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&forecast_days=7&timeformat=unixtime&hourly=wave_height,wave_period,swell_wave_height,ocean_current_velocity`);
   if (!r.ok) throw new Error('Sumber data tidak dapat dihubungi.');
   let j = await r.json(); if (!Array.isArray(j)) j = [j];
   const t = j[0].hourly.time.map(x => x * 1000);
-  const pts = j.map(p => { const h = p.hourly; const c = (h.ocean_current_velocity || []).map(v => v == null ? null : v / 1.852); return { t, hx: h.wave_height, hn: h.wave_height, sw: h.swell_wave_height || [], tp: h.wave_period || [], cur: c, w: [], g: [] }; });
-  return { pts, source: 'Open-Meteo Marine (langsung, 1 model)', waveModels: ['Open-Meteo (best match)'], windModels: [], at: Date.now() };
+  const pts = j.map(p => { const h = p.hourly; const c = (h.ocean_current_velocity || []).map(v => v == null ? null : v / 1.852); return { t, hx: h.wave_height, hn: h.wave_height, sw: h.swell_wave_height || [], tp: h.wave_period || [], cur: c, w: [], g: [], cell: [p.latitude, p.longitude], wm: ['Open-Meteo (best match)'] }; });
+  return { pts, source: 'Open-Meteo Marine (langsung, 1 model)', waveModels: ['Open-Meteo (best match)'], windModels: [], windOk: false, at: Date.now() };
  }
 }
 
@@ -384,40 +364,17 @@ async function loadWarnings() {
 }
 
 // ---------- core calc ----------
-function valAt(pt, field, ms) {
- if (!pt || !pt.t.length) return undefined;
- const i = Math.round((ms - pt.t[0]) / 3600e3);
- if (i < 0 || i >= pt.t.length) return undefined;
- const v = (pt[field] || [])[i];
- return v == null ? null : v;
-}
-function verdict(r, margin) {
- if (r.hs === undefined || r.hs === null) return 'x';
- const sh = S.ship, e = r.hs + margin;
- let v = 'g';
- if (e > sh.hs) return 'r';
- if (e > 0.8 * sh.hs) v = 'a';
- if (sh.wind && r.w != null) { if (r.w > sh.wind) return 'r'; if (r.w > 0.8 * sh.wind) v = 'a'; }
- if (sh.cur && r.cur != null && r.cur > sh.cur) v = 'a';
- return v;
-}
-function trip(depart, speed, margin) {
- const rows = S.samples.map((p, i) => {
-  const eta = depart + p.cum / speed * 3600e3, pt = S.data.pts[i];
-  return { p, eta, hs: valAt(pt, 'hx', eta), hn: valAt(pt, 'hn', eta), sw: valAt(pt, 'sw', eta), tp: valAt(pt, 'tp', eta), cur: valAt(pt, 'cur', eta), w: valAt(pt, 'w', eta), g: valAt(pt, 'g', eta) };
- });
- rows.forEach(r => { r.vd = verdict(r, margin); });
- const out = rows.some(r => r.hs === undefined);
- let worst = 'g', maxE = -1, at = null, maxC = -1, atC = null, maxW = -1, atW = null, spread = 0, atS = null;
- rows.forEach(r => {
-  if (r.vd !== 'x' && RANK[r.vd] > RANK[worst]) worst = r.vd;
-  if (r.hs != null && r.hs + margin > maxE) { maxE = r.hs + margin; at = r; }
-  if (r.cur != null && r.cur > maxC) { maxC = r.cur; atC = r; }
-  if (r.w != null && r.w > maxW) { maxW = r.w; atW = r; }
-  if (r.hs != null && r.hn != null && r.hs - r.hn > spread) { spread = r.hs - r.hn; atS = r; }
- });
- if (rows.every(r => r.hs === undefined)) worst = 'x';
- return { rows, worst, maxE, at, maxC, atC, maxW, atW, spread, atS, out };
+// Logika status ada di lib/route.js (diuji unit). Di sini hanya pembungkus.
+const quality = () => SR.dataQuality(S.samples, S.data, S.ship, Date.now());
+const trip = (depart, speed, margin, q) => SR.trip(S.samples, S.data, S.ship, depart, speed, margin, q || quality());
+
+// ---------- pelabuhan BMKG terdekat ----------
+let PORTS = [];
+fetch('/data/bmkg-ports.json').then(r => r.ok ? r.json() : null).then(j => { if (j && Array.isArray(j.ports)) { PORTS = j.ports; compute(); } }).catch(() => {});
+function portLinks() {
+ if (!PORTS.length || S.wps.length < 2) return [];
+ const ends = [['Awal (WP1)', S.wps[0]], [`Akhir (WP${S.wps.length})`, S.wps[S.wps.length - 1]]];
+ return ends.map(([label, w]) => ({ label, near: SR.nearestPort(w, PORTS) }));
 }
 const segName = r => `WP${r.p.seg + 1}–WP${r.p.seg + 2}`;
 
@@ -450,6 +407,7 @@ async function calc() {
  try {
   S.data = await fetchData(S.samples);
   S.dataKey = keyOf(S.samples);
+  map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 });
   try { localStorage.setItem('sl-data2', JSON.stringify({ key: S.dataKey, data: S.data })); } catch (e) {}
   compute();
  } catch (e) {
@@ -465,23 +423,23 @@ function compute() {
  const sh = S.ship;
  const depart = fromLocalInput($('depart').value), speed = Math.max(2, +$('speed').value || sh.speed), margin = Math.max(0, +$('margin').value || 0);
  if (!Number.isFinite(depart)) return;
- const T = trip(depart, speed, margin);
+ const Q = quality();
+ const T = trip(depart, speed, margin, Q);
  drawRoute(T.rows);
  const total = S.samples[S.samples.length - 1].cum, hours = total / speed, arrive = depart + hours * 3600e3;
  const name = sh.name || 'Kapal';
- const notes = [];
- if (sh.range && total > sh.range) notes.push(`Panjang rute ${Math.round(total)} NM melebihi jarak jelajah kapal ${fmtN(sh.range)} NM. Rencanakan pengisian bahan bakar.`);
- if (sh.cur && T.maxC > sh.cur) notes.push(`Arus maks. ${fmt1(T.maxC)} kn di ${segName(T.atC)} melebihi batas arus ${fmtN(sh.cur)} kn.`);
- if (sh.draft) notes.push(`Sarat ${fmtN(sh.draft)} m: periksa kedalaman alur dan pelabuhan pada peta laut.`);
- if (sh.wind && T.maxW > sh.wind) notes.push(`Angin maks. ${Math.round(T.maxW)} kn di ${segName(T.atW)} melebihi batas angin ${fmtN(sh.wind)} kn.`);
- if (T.spread > 0.5) notes.push(`Model berbeda hingga ${fmt1(T.spread)} m di ${segName(T.atS)}: ketidakpastian tinggi, pantau pembaruan.`);
+ const notes = SR.notesFor(T, sh, total, speed, { f1: fmt1, fn: fmtN });
  const nearW = WARN.alerts.filter(a => (!a.expires || a.expires > Date.now()) && nearRoute(a));
  if (nearW.length) notes.push(`${nearW.length} peringatan dini cuaca BMKG aktif dekat rute: ${nearW.map(a => a.event).filter((v, i, x) => x.indexOf(v) === i).join(', ')}.`);
- if (speed > sh.speed) notes.push(`Kecepatan rencana ${fmt1(speed)} kn di atas kecepatan jelajah ${fmtN(sh.speed)} kn.`);
+ const dq = Q.filter(q => q.level === 'info').map(q => q.text);   // catatan kualitas data (yang 'down' sudah ada di alasan penurunan)
+ const ports = portLinks();
+ const portHtml = ports.length ? `<p class="note port">Prakiraan pelabuhan BMKG: ${ports.map(x => x.near
+   ? `${esc(x.label)} → <a href="${esc(SR.portUrl(x.near.port.c))}" target="_blank" rel="noopener">${esc(x.near.port.n)}</a> (${fmt1(x.near.d)} NM)`
+   : `${esc(x.label)} → tidak ada pelabuhan BMKG dalam ${SR.PORT_MAX_NM} NM`).join(' · ')}</p>` : '';
 
  $('status').innerHTML = `<div class="st"><strong>${esc(name)}</strong><span class="pill ${T.worst}">${LBL[T.worst]}</span>
   <small>Maks. efektif ${fmt1(T.maxE)} m (gelombang + margin ${fmt1(margin)} m)${T.at ? ` di ${segName(T.at)}, ${fmtT(T.at.eta)} WIB` : ''} · batas ${fmtN(sh.hs)} m${T.maxW >= 0 ? ` · angin maks. ${Math.round(T.maxW)} kn` : ''}${T.out ? ' · sebagian rute di luar jangkauan data' : ''}</small>
-  ${notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}</div>`;
+  ${notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}${dq.map(n => `<p class="note dq">${esc(n)}</p>`).join('')}${portHtml}</div>`;
  $('meta').textContent = `${Math.round(total)} NM · ${fmt1(hours)} jam · tiba ${fmtT(arrive)} WIB · gelombang: ${(S.data.waveModels || []).join(', ') || '–'} · angin: ${(S.data.windModels || []).join(', ') || '–'} · diambil ${fmtT(S.data.at)} WIB`;
 
  $('tbl').querySelector('tbody').innerHTML = T.rows.filter(r => r.p.wp != null || $('allPts').checked).map(r => {
@@ -490,17 +448,11 @@ function compute() {
  }).join('');
 
  $('winFor').textContent = `Untuk ${name} pada ${fmt1(speed)} knot. Ketuk jam untuk memilih waktu berangkat.`;
- const start = nextHour(), slots = [];
- for (let k = 0; k < 64; k++) {
-  const d = start + k * 3 * 3600e3, t = trip(d, speed, margin);
-  slots.push({ d, vd: t.out ? 'x' : t.worst, maxE: t.maxE });
-  if (t.out && slots.filter(s => s.vd === 'x').length > 2) break;
- }
+ const W = SR.windows(S.samples, S.data, sh, nextHour(), speed, margin, Q), slots = W.slots, best = W.best;
  const days = {};
  slots.forEach(s => { const k = fmtT(s.d, { hour: undefined, minute: undefined }); (days[k] = days[k] || []).push(s); });
  $('win').innerHTML = Object.entries(days).map(([day, ss]) => `<div class="day"><span>${esc(day)}</span><div class="slots">${ss.map(s =>
   `<button type="button" class="slot ${s.vd}${Math.abs(s.d - depart) < 90e4 ? ' sel' : ''}" data-d="${s.d}" aria-label="Berangkat ${fmtT(s.d)}">${fmtT(s.d, { weekday: undefined, day: undefined, month: undefined })}<br>${s.vd === 'x' ? '–' : fmt1(s.maxE) + 'm'}</button>`).join('')}</div></div>`).join('');
- const best = slots.find(s => s.vd === 'g') || slots.filter(s => s.vd !== 'x').sort((a, b) => RANK[a.vd] - RANK[b.vd] || a.maxE - b.maxE)[0];
 
  const spec = [sh.loa && `LOA ${fmtN(sh.loa)} m`, sh.beam && `lebar ${fmtN(sh.beam)} m`, sh.draft && `sarat ${fmtN(sh.draft)} m`, `jelajah ${fmtN(sh.speed)} kn`, sh.range && `jarak jelajah ${fmtN(sh.range)} NM`].filter(Boolean).join(', ');
  const lines = [
@@ -515,6 +467,8 @@ function compute() {
  if (T.maxW >= 0) lines.push(`Angin maks.: ${Math.round(T.maxW)} kn${T.atW ? ` (${segName(T.atW)}, ${fmtT(T.atW.eta)} WIB)` : ''}`);
  if (T.maxC >= 0) lines.push(`Arus maks.: ${fmt1(T.maxC)} kn${T.atC ? ` (${segName(T.atC)})` : ''}`);
  notes.forEach(n => lines.push('Catatan: ' + n));
+ dq.forEach(n => lines.push('Kualitas data: ' + n));
+ ports.forEach(x => lines.push(x.near ? `Prakiraan pelabuhan BMKG ${x.label}: ${x.near.port.n} (${fmt1(x.near.d)} NM) ${SR.portUrl(x.near.port.c)}` : `Prakiraan pelabuhan BMKG ${x.label}: tidak ada dalam ${SR.PORT_MAX_NM} NM`));
  if (best) lines.push('', best.vd === 'r'
   ? `Jendela berangkat: tidak ada waktu aman dalam jangkauan prakiraan. Kondisi paling ringan: berangkat ${fmtT(best.d)} WIB (maks. efektif ${fmt1(best.maxE)} m).`
   : best.vd === 'g' ? `Jendela aman terdekat: berangkat ${fmtT(best.d)} WIB (maks. efektif ${fmt1(best.maxE)} m).`

@@ -17,13 +17,15 @@ const SCENARIOS = [
     id: 'batam',
     name: 'Tanjung Uban → Telaga Punggur',
     ship: { sName: 'KRI Uji Batam', sSpeed: '10', sHs: '1.5', sCur: '2', sWind: '25', sDraft: '2.5' },
-    wps: [['1.0652', '104.2163'], ['1.070', '104.180'], ['1.058', '104.145']]
+    wps: [['1.0652', '104.2163'], ['1.070', '104.180'], ['1.058', '104.145']],
+    expect: { sharedCell: true, ports: ['Tg.Uban', 'Punggur'] }
   },
   {
     id: 'kupang',
     name: 'Surabaya → Kupang',
     ship: { sName: 'KRI Uji Kupang', sSpeed: '14', sHs: '3.5', sLoa: '90', sRange: '3000', sWind: '35' },
-    preset: '0'
+    preset: '0',
+    expect: { sharedCell: false, ports: ['Gresik', 'Hansisi'] }
   }
 ];
 const VIEWPORTS = [
@@ -68,6 +70,7 @@ async function run(browser, sc, vp) {
   await page.waitForFunction(() => document.querySelector('#calc').textContent.includes('Hitung') && !document.querySelector('#calc').disabled, null, { timeout: 60000 });
   await page.waitForSelector('#status .pill', { timeout: 60000 });
   await page.waitForFunction(() => !/Mengambil/.test(document.querySelector('#bmkgList').textContent), null, { timeout: 60000 });
+  await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
 
   const r = await page.evaluate(() => {
     const strokes = [...document.querySelectorAll('.leaflet-overlay-pane path')].map(p => p.getAttribute('stroke'));
@@ -83,6 +86,12 @@ async function run(browser, sc, vp) {
       bmkg: document.querySelector('#bmkgList').innerText.split('\n')[0],
       msg: document.querySelector('#msg').textContent,
       wps: document.querySelectorAll('#wps .wp').length,
+      dq: [...document.querySelectorAll('#status .note.dq')].map(n => n.textContent),
+      ports: (document.querySelector('#status .note.port') || {}).textContent || '',
+      portLinks: [...document.querySelectorAll('#status .note.port a')].map(a => a.href),
+      routePx: (() => { const bs = [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => ['#16a05a', '#e2a100', '#d33f3f', '#9aa7b6'].includes(p.getAttribute('stroke'))).map(p => p.getBoundingClientRect());
+        if (!bs.length) return 0; return Math.max(Math.max(...bs.map(b => b.right)) - Math.min(...bs.map(b => b.left)), Math.max(...bs.map(b => b.bottom)) - Math.min(...bs.map(b => b.top))); })(),
+      windFailed: /model angin gagal/.test(document.querySelector('#status').innerText),
       hScroll: document.documentElement.scrollWidth > window.innerWidth + 1
     };
   });
@@ -103,7 +112,12 @@ async function run(browser, sc, vp) {
     ['jendela berangkat terisi', r.slots.length > 0, String(r.slots.length)],
     ['briefing terisi', r.brief.startsWith('SIGAP LAUT') && /STATUS:/.test(r.brief), r.brief.slice(0, 40)],
     ['peringatan BMKG tampil', /peringatan/i.test(r.bmkg) && !/tidak dapat diambil/.test(r.bmkg), r.bmkg],
-    ['tanpa scroll horizontal', !r.hScroll, '']
+    ['tanpa scroll horizontal', !r.hScroll, ''],
+    ['peta diperbesar ke rute', r.routePx > 100, String(Math.round(r.routePx)) + ' px'],
+    ['tautan pelabuhan BMKG terdekat', sc.expect.ports.every(n => r.ports.includes(n)) && r.portLinks.length === 2 && r.portLinks.every(h => h.startsWith('https://www.bmkg.go.id/cuaca/maritim/pelabuhan/')), r.ports],
+    ['peringatan sel grid sama sesuai rute', sc.expect.sharedCell === r.dq.some(t => /sel grid model yang sama/.test(t)), r.dq.join(' | ') || '(tidak ada)'],
+    ['briefing memuat kualitas data & pelabuhan', /Prakiraan pelabuhan BMKG/.test(r.brief) && (!sc.expect.sharedCell || /Kualitas data:/.test(r.brief)), ''],
+    ['model angin gagal -> tidak pernah AMAN', !r.windFailed || r.status !== 'AMAN', r.status]
   ];
   return { sc, vp, r, checks, shot };
 }
@@ -117,6 +131,8 @@ async function run(browser, sc, vp) {
       const res = await run(browser, sc, vp);
       results.push(res);
       console.log(`\n=== ${sc.name} · ${vp.id} ${vp.width}×${vp.height} ===`);
+      if (res.r.dq.length) console.log('kualitas data: ' + res.r.dq.join(' | '));
+      console.log('pelabuhan: ' + res.r.ports);
       console.log(`status: ${res.r.status} · warna rute: ${res.r.routeColors.join(',')} · baris: ${res.r.rows} · slot: ${res.r.slots.length}`);
       console.log('meta: ' + res.r.meta);
       for (const [n, ok, info] of res.checks) {

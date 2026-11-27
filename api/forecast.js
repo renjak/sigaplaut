@@ -13,6 +13,7 @@ async function getJSON(url) {
   return Array.isArray(j) ? j : [j];
 }
 const rnd = v => (v == null || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100;
+const rnd4 = v => Math.round(v * 1e4) / 1e4;
 
 module.exports = async (req, res) => {
   try {
@@ -24,7 +25,11 @@ module.exports = async (req, res) => {
       lon.some(v => !Number.isFinite(v) || v < 85 || v > 150);
     if (bad) return res.status(400).json({ error: 'Koordinat tidak valid (maks. 80 titik, wilayah perairan Indonesia).' });
     const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 8);
-    const loc = '?latitude=' + lat.map(v => v.toFixed(3)).join(',') + '&longitude=' + lon.map(v => v.toFixed(3)).join(',') +
+    // Koordinat identik (mis. rute patroli kembali ke titik awal) hanya diminta sekali ke sumber data.
+    const keys = lat.map((v, i) => v.toFixed(3) + ',' + lon[i].toFixed(3));
+    const uniq = [...new Set(keys)];
+    const idx = keys.map(k => uniq.indexOf(k));
+    const loc = '?latitude=' + uniq.map(k => k.split(',')[0]).join(',') + '&longitude=' + uniq.map(k => k.split(',')[1]).join(',') +
       '&forecast_days=' + days + '&timeformat=unixtime';
 
     const [base, models, wind] = await Promise.allSettled([
@@ -40,7 +45,7 @@ module.exports = async (req, res) => {
     const usedWave = new Set(), usedWind = new Set();
     if (base.status === 'fulfilled') usedWave.add('Open-Meteo (best match)');
 
-    const points = ref.map((p, i) => {
+    const uniqPoints = ref.map((p, i) => {
       const at = arr => {
         const m = new Map();
         ((arr && arr.time) || []).forEach((x, k) => m.set(x, k));
@@ -53,13 +58,15 @@ module.exports = async (req, res) => {
       const curUnit = String((base.status === 'fulfilled' && base.value[i].hourly_units && base.value[i].hourly_units.ocean_current_velocity) || 'km/h');
       const ck = curUnit.includes('m/s') ? 1.94384 : curUnit.includes('kn') ? 1 : 1 / 1.852;
       const o = { hx: [], hn: [], sw: [], tp: [], cur: [], w: [], g: [] };
+      const wm = new Set();
+      if (base.status === 'fulfilled' && (B.wave_height || []).some(v => v != null && v > 0.01)) wm.add('Open-Meteo (best match)');
       t.forEach(time => {
         const kb = bi.get(time), km = mi.get(time), kw = wi.get(time);
         const waves = [];
         if (kb != null && B.wave_height && B.wave_height[kb] > 0.01) waves.push(B.wave_height[kb]);
         Object.keys(WAVE).forEach(m => {
           const v = km != null && M['wave_height_' + m] ? M['wave_height_' + m][km] : null;
-          if (v != null && v > 0.01) { waves.push(v); usedWave.add(WAVE[m]); } // 0 = sel daratan/tertutup
+          if (v != null && v > 0.01) { waves.push(v); usedWave.add(WAVE[m]); wm.add(WAVE[m]); } // 0 = sel daratan/tertutup
         });
         let ws = null, gs = null;
         Object.keys(WIND).forEach(m => {
@@ -76,15 +83,20 @@ module.exports = async (req, res) => {
         o.w.push(rnd(ws));
         o.g.push(rnd(gs));
       });
+      // Sel grid yang dipakai sumber data (best match ±8 km); dipakai klien untuk peringatan resolusi.
+      const c = ref[i];
+      o.cell = Number.isFinite(c.latitude) && Number.isFinite(c.longitude) ? [rnd4(c.latitude), rnd4(c.longitude)] : null;
+      o.wm = [...wm];
       return o;
     });
+    const points = idx.map(k => uniqPoints[k]);
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json({
       source: 'Open-Meteo (data terbuka ECMWF, NOAA, Météo-France, DWD)',
       waveModels: [...usedWave], windModels: [...usedWind],
       windOk: wind.status === 'fulfilled',
-      fetchedAt: Date.now(), t, points
+      fetchedAt: Date.now(), requested: lat.length, fetched: uniq.length, t, points
     });
   } catch (e) {
     return res.status(500).json({ error: 'Gagal mengambil data.', detail: String(e).slice(0, 300) });
