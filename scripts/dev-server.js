@@ -19,6 +19,13 @@ http.createServer(async (req, res) => {
       status(c) { res.statusCode = c; return shim; },
       json(b) { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(b)); return shim; }
     });
+    // FORECAST_PROXY=https://sigap-laut.vercel.app: ambil /api/forecast dari situs live (data nyata yang sama)
+    // bila Open-Meteo menolak IP mesin ini (HTTP 429). Hanya untuk pengujian lokal.
+    if (api[1] === 'forecast' && process.env.FORECAST_PROXY) {
+      const up = await fetch(process.env.FORECAST_PROXY.replace(/\/$/, '') + u.pathname + u.search).catch(e => ({ ok: false, status: 502, text: async () => JSON.stringify({ error: String(e) }) }));
+      res.statusCode = up.status; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Connection', 'close');
+      return res.end(await up.text());
+    }
     req.query = Object.fromEntries(u.searchParams);
     res.setHeader('Connection', 'close');   // hindari percobaan ulang browser pada koneksi keep-alive yang basi
     try { await fn(req, shim); } catch (e) { res.statusCode = 500; res.end(String(e)); }

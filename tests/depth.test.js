@@ -27,6 +27,18 @@ test('thresholds: sarat 4 m -> merah < 6,5 m (4 + UKC 1 + surut 1,5), kuning < 1
   assert.strictEqual(t.red, 6.5);
   assert.strictEqual(t.amber, 11.5);
   assert.strictEqual(D.thresholds(10).ukc, 2);   // 20% sarat bila > 1 m
+  assert.strictEqual(t.ukcSource, 'bawaan');
+});
+
+test('thresholds: UKC dari data kapal dipakai bila diisi', () => {
+  const t = D.thresholds(4, 2.5);
+  assert.strictEqual(t.ukc, 2.5);
+  assert.strictEqual(t.ukcSource, 'kapal');
+  assert.strictEqual(t.red, 8);          // 4 + 2,5 + 1,5
+  // beting 7 m: aman-waspada untuk UKC bawaan, bahaya untuk UKC kapal 2,5 m
+  const g = mk(set => box(set, -0.52, -0.48, 107.2, 107.25, 7));
+  assert.strictEqual(D.assess(ROUTE, g, 4).level, 'a');
+  assert.strictEqual(D.assess(ROUTE, g, 4, 2.5).level, 'r');
 });
 
 test('assess: perairan dalam -> tidak ada temuan', () => {
