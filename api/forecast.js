@@ -33,6 +33,42 @@ async function metWindAt(lat, lon, t) {
   }
   return out;
 }
+// Stormglass (opsional, berbayar per titik): aktif hanya bila STORMGLASS_API_KEY diisi di server.
+// Dipakai sebagai pembanding di sejumlah titik (STORMGLASS_MAX_POINTS, bawaan 10) yang tersebar rata,
+// selalu termasuk titik pertama & terakhir. Nilai digabung konservatif: hanya bisa MENAIKKAN nilai maksimum.
+// Catatan: koordinat titik itu dikirim ke Stormglass (layanan luar), jadi matikan untuk rute operasional.
+const SG = 'https://api.stormglass.io/v2/weather/point';
+const SG_PARAMS = 'waveHeight,windSpeed,gust,currentSpeed';
+function pickEven(n, max) {
+  if (n <= max) return [...Array(n).keys()];
+  const out = new Set([0, n - 1]);
+  for (let k = 1; out.size < max && k < max - 1; k++) out.add(Math.round(k * (n - 1) / (max - 1)));
+  return [...out].sort((a, b) => a - b);
+}
+const maxOf = o => { const v = Object.values(o || {}).filter(Number.isFinite); return v.length ? Math.max(...v) : null; };
+async function stormglass(coords, t) {
+  const key = process.env.STORMGLASS_API_KEY;
+  if (!key) return null;
+  const max = Math.max(1, Math.min(50, parseInt(process.env.STORMGLASS_MAX_POINTS, 10) || 10));
+  const idx = pickEven(coords.length, max), res = new Array(coords.length).fill(null);
+  let error = null;
+  await Promise.all(idx.map(async i => {
+    try {
+      const [la, lo] = coords[i];
+      const r = await fetch(`${SG}?lat=${la}&lng=${lo}&params=${SG_PARAMS}&start=${t[0]}&end=${t[t.length - 1]}`, { headers: { Authorization: key }, signal: AbortSignal.timeout(15000) });
+      if (!r.ok) throw new Error('Stormglass ' + r.status + (r.status === 402 || r.status === 429 ? ' (kuota habis)' : ''));
+      const j = await r.json(), m = new Map();
+      (j.hours || []).forEach(h => m.set(Math.round(Date.parse(h.time) / 1000), {
+        hs: maxOf(h.waveHeight), w: maxOf(h.windSpeed) == null ? null : maxOf(h.windSpeed) * 1.94384,
+        g: maxOf(h.gust) == null ? null : maxOf(h.gust) * 1.94384, cur: maxOf(h.currentSpeed) == null ? null : maxOf(h.currentSpeed) * 1.94384
+      }));
+      res[i] = t.map(time => m.get(time) || null);
+    } catch (e) { error = error || String(e.message || e); }
+  }));
+  const used = res.filter(Boolean).length;
+  return { res, requested: idx.length, used, error };
+}
+
 async function metWind(coords, t) {
   const res = new Array(coords.length).fill(null);
   let i = 0;
@@ -81,6 +117,7 @@ module.exports = async (req, res) => {
     // Model angin Open-Meteo gagal: coba MET Norway untuk titik unik.
     const met = wind.status === 'fulfilled' ? null : await metWind(uniq.map(k => k.split(',').map(Number)), t);
     const metOk = !!met && met.some(a => a && a.some(v => v != null));
+    const sg = await stormglass(uniq.map(k => k.split(',').map(Number)), t);
     if (base.status === 'fulfilled') usedWave.add('Open-Meteo (best match)');
 
     const uniqPoints = ref.map((p, i) => {
@@ -97,6 +134,7 @@ module.exports = async (req, res) => {
       const ck = curUnit.includes('m/s') ? 1.94384 : curUnit.includes('kn') ? 1 : 1 / 1.852;
       const o = { hx: [], hn: [], sw: [], tp: [], cur: [], w: [], g: [] };
       const mw = met && met[i];
+      const sgp = sg && sg.res[i];
       const wm = new Set();
       if (base.status === 'fulfilled' && (B.wave_height || []).some(v => v != null && v > 0.01)) wm.add('Open-Meteo (best match)');
       t.forEach((time, ti) => {
@@ -107,6 +145,8 @@ module.exports = async (req, res) => {
           const v = km != null && M['wave_height_' + m] ? M['wave_height_' + m][km] : null;
           if (v != null && v > 0.01) { waves.push(v); usedWave.add(WAVE[m]); wm.add(WAVE[m]); } // 0 = sel daratan/tertutup
         });
+        const sv = sgp && sgp[ti];
+        if (sv && sv.hs != null && sv.hs > 0.01) { waves.push(sv.hs); usedWave.add('Stormglass'); }   // tidak dihitung di wm (hanya sebagian titik)
         let ws = null, gs = null;
         Object.keys(WIND).forEach(m => {
           const v = kw != null && W['wind_speed_10m_' + m] ? W['wind_speed_10m_' + m][kw] : null;
@@ -118,8 +158,11 @@ module.exports = async (req, res) => {
         o.hn.push(waves.length ? rnd(Math.min(...waves)) : null);
         o.sw.push(kb != null && B.swell_wave_height ? rnd(B.swell_wave_height[kb]) : null);
         o.tp.push(kb != null && B.wave_period ? rnd(B.wave_period[kb]) : null);
-        o.cur.push(kb != null && B.ocean_current_velocity && B.ocean_current_velocity[kb] != null ? rnd(B.ocean_current_velocity[kb] * ck) : null);
+        const c0 = kb != null && B.ocean_current_velocity && B.ocean_current_velocity[kb] != null ? B.ocean_current_velocity[kb] * ck : null;
+        o.cur.push(rnd(sv && sv.cur != null ? Math.max(c0 ?? 0, sv.cur) : c0));
         if (ws == null && mw && mw[ti] != null) { ws = mw[ti]; usedWind.add(MET_LABEL); }   // cadangan: tanpa data hembusan
+        if (sv && sv.w != null) { ws = Math.max(ws ?? 0, sv.w); usedWind.add('Stormglass'); }   // pembanding: hanya menaikkan
+        if (sv && sv.g != null) gs = Math.max(gs ?? 0, sv.g);
         o.w.push(rnd(ws));
         o.g.push(rnd(gs));
       });
@@ -137,6 +180,7 @@ module.exports = async (req, res) => {
       waveModels: [...usedWave], windModels: [...usedWind],
       windOk: wind.status === 'fulfilled' || metOk,
       windBackup: wind.status !== 'fulfilled' && metOk,
+      stormglass: sg ? { points: sg.used, requested: sg.requested, of: uniq.length, error: sg.error } : null,
       fetchedAt: Date.now(), requested: lat.length, fetched: uniq.length, t, points
     });
   } catch (e) {

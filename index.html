@@ -332,7 +332,7 @@ async function fetchData(samples) {
   const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`, { cache: 'no-cache' });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'gagal');
-  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, windBackup: !!j.windBackup, at: j.fetchedAt };
+  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, windBackup: !!j.windBackup, stormglass: j.stormglass || null, at: j.fetchedAt };
  } catch (e) {
   const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&forecast_days=7&timeformat=unixtime&hourly=wave_height,wave_period,swell_wave_height,ocean_current_velocity`);
   if (!r.ok) throw new Error('Sumber data tidak dapat dihubungi.');

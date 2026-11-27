@@ -113,3 +113,37 @@ test('forecast: model angin & MET Norway gagal -> windOk false (aplikasi menurun
   assert.strictEqual(r.body.windBackup, false);
   assert.deepStrictEqual(r.body.points[0].w, [null, null, null]);
 });
+
+test('forecast: Stormglass (opsional) hanya aktif dengan kunci, tersebar rata, hanya menaikkan nilai', async () => {
+  const iso = x => new Date(x * 1000).toISOString().replace('.000Z', '+00:00');
+  mockFetch(); const inner = global.fetch; const calls = [];
+  global.fetch = async (u, o) => {
+    const url = String(u);
+    if (url.includes('api.stormglass.io')) {
+      calls.push({ url, auth: o.headers.Authorization });
+      const hours = T.map((x, k) => ({ time: iso(x), waveHeight: { sg: k === 0 ? 4 : 0.5, noaa: 0.6 }, windSpeed: { sg: 20 }, gust: { sg: 25 }, currentSpeed: { sg: 0.1 } }));
+      return { ok: true, status: 200, json: async () => ({ hours }) };
+    }
+    return inner(u, o);
+  };
+  const f = require('../api/forecast.js');
+  // tanpa kunci: tidak dipanggil
+  delete process.env.STORMGLASS_API_KEY;
+  let r = res(); await f({ query: { lat: '-8,-8.2,-8.4,-8.6', lon: '110,110,110,110' } }, r);
+  assert.strictEqual(calls.length, 0);
+  assert.strictEqual(r.body.stormglass, null);
+  // dengan kunci & maks. 2 titik: titik pertama dan terakhir
+  process.env.STORMGLASS_API_KEY = 'uji'; process.env.STORMGLASS_MAX_POINTS = '2';
+  r = res(); await f({ query: { lat: '-8,-8.2,-8.4,-8.6', lon: '110,110,110,110' } }, r);
+  delete process.env.STORMGLASS_API_KEY; delete process.env.STORMGLASS_MAX_POINTS;
+  assert.strictEqual(calls.length, 2);
+  assert.ok(calls[0].url.includes('lat=-8&') && calls[1].url.includes('lat=-8.6&'));
+  assert.strictEqual(calls[0].auth, 'uji');
+  assert.deepStrictEqual(r.body.stormglass, { points: 2, requested: 2, of: 4, error: null });
+  const p0 = r.body.points[0], p1 = r.body.points[1];
+  assert.deepStrictEqual(p0.hx, [4, 2.2, 3]);          // jam 0 dinaikkan oleh Stormglass 4 m; jam lain tetap
+  assert.deepStrictEqual(p1.hx, [1.5, 2.2, 3]);        // titik tanpa Stormglass tidak berubah
+  assert.deepStrictEqual(p0.w, [38.88, 38.88, 38.88]); // 20 m/s -> knot, lebih besar dari model lain
+  assert.deepStrictEqual(p0.cur, [1, 2, 0.19]);         // arus: maksimum, tidak menurunkan 1 & 2 knot
+  assert.ok(!p0.wm.includes('Stormglass'));
+});

@@ -168,3 +168,9 @@ test('dataQuality: angin dari cadangan MET Norway -> catatan', () => {
   const d = data([pt({ hx: 0.5, w: 10 })], { windBackup: true, windModels: ['MET Norway (cadangan)'] });
   assert.ok(R.dataQuality(samples.slice(0, 1), d, SHIP, T0).some(x => x.code === 'windBackup' && x.level === 'info'));
 });
+
+test('dataQuality: Stormglass pembanding & galat kuota tampil sebagai catatan', () => {
+  const d = data([pt({ hx: 0.5 })], { stormglass: { points: 3, requested: 10, of: 40, error: 'Stormglass 429 (kuota habis)' } });
+  const q = R.dataQuality(samples.slice(0, 1), d, SHIP, T0).find(x => x.code === 'stormglass');
+  assert.ok(q && q.text.includes('3 dari 40') && q.text.includes('kuota habis'));
+});
