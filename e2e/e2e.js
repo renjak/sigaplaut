@@ -13,19 +13,22 @@ const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
 const SCENARIOS = [
+  // Rute uji tunggal: Batam (Sekupang) → Jakarta (Tanjung Priok / Pondok Dayung), contoh rute pertama di aplikasi.
   {
-    id: 'batam',
-    name: 'Tanjung Uban → Telaga Punggur',
-    ship: { sName: 'KRI Uji Batam', sSpeed: '10', sHs: '1.5', sCur: '2', sWind: '25', sDraft: '2.5' },
-    wps: [['1.0652', '104.2163'], ['1.070', '104.180'], ['1.058', '104.145']],
-    expect: { sharedCell: true, ports: ['Tg.Uban', 'Punggur'] }
+    id: 'batam-jakarta-sarat4',
+    name: 'Batam → Jakarta, sarat 4 m',
+    ship: { sName: 'KRI Uji Sarat 4', sSpeed: '15', sHs: '2.5', sCur: '2', sWind: '30', sDraft: '4', sRange: '3000' },
+    preset: '0',
+    viewports: ['hp', 'desktop'],
+    expect: { wps: 30, ports: ['Sekupang', 'Tanjung Priok'], depth: 'a', sharedCell: true }
   },
   {
-    id: 'kupang',
-    name: 'Surabaya → Kupang',
-    ship: { sName: 'KRI Uji Kupang', sSpeed: '14', sHs: '3.5', sLoa: '90', sRange: '3000', sWind: '35' },
+    id: 'batam-jakarta-sarat8',
+    name: 'Batam → Jakarta, sarat 8 m',
+    ship: { sName: 'KRI Uji Sarat 8', sSpeed: '15', sHs: '2.5', sCur: '2', sWind: '30', sDraft: '8', sRange: '3000' },
     preset: '0',
-    expect: { sharedCell: false, ports: ['Gresik', 'Hansisi'] }
+    viewports: ['desktop'],
+    expect: { wps: 30, ports: ['Sekupang', 'Tanjung Priok'], depth: 'r', sharedCell: true }
   }
 ];
 const VIEWPORTS = [
@@ -87,6 +90,9 @@ async function run(browser, sc, vp) {
       msg: document.querySelector('#msg').textContent,
       wps: document.querySelectorAll('#wps .wp').length,
       dq: [...document.querySelectorAll('#status .note.dq')].map(n => n.textContent),
+      depth: [...document.querySelectorAll('#status .note.depth')].map(n => n.textContent),
+      depthBad: document.querySelectorAll('#status .note.depth.bad').length,
+      depthMarkers: [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => p.getAttribute('stroke') === '#0b2545' && ['#d33f3f', '#e2a100', '#3b2a1a'].includes(p.getAttribute('fill'))).length,
       ports: (document.querySelector('#status .note.port') || {}).textContent || '',
       portLinks: [...document.querySelectorAll('#status .note.port a')].map(a => a.href),
       routePx: (() => { const bs = [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => ['#16a05a', '#e2a100', '#d33f3f', '#9aa7b6'].includes(p.getAttribute('stroke'))).map(p => p.getBoundingClientRect());
@@ -105,7 +111,7 @@ async function run(browser, sc, vp) {
     ['API /api/forecast 200', apiStatus['/api/forecast'] === 200, String(apiStatus['/api/forecast'])],
     ['API /api/bmkg-warnings 200', apiStatus['/api/bmkg-warnings'] === 200, String(apiStatus['/api/bmkg-warnings'])],
     ['tidak ada pesan galat', !r.msg, r.msg],
-    ['jumlah waypoint benar', r.wps === (sc.wps ? sc.wps.length : 7), String(r.wps)],
+    ['jumlah waypoint benar', r.wps === (sc.wps ? sc.wps.length : sc.expect.wps), String(r.wps)],
     ['garis rute berwarna tampil', r.routeColors.length > 0, r.routeColors.join(',')],
     ['status terisi', /AMAN|WASPADA|TIDAK DISARANKAN|TANPA DATA/.test(r.status), r.status],
     ['tabel terisi', r.rows >= 2, String(r.rows)],
@@ -117,7 +123,14 @@ async function run(browser, sc, vp) {
     ['tautan pelabuhan BMKG terdekat', sc.expect.ports.every(n => r.ports.includes(n)) && r.portLinks.length === 2 && r.portLinks.every(h => h.startsWith('https://www.bmkg.go.id/cuaca/maritim/pelabuhan/')), r.ports],
     ['peringatan sel grid sama sesuai rute', sc.expect.sharedCell === r.dq.some(t => /sel grid model yang sama/.test(t)), r.dq.join(' | ') || '(tidak ada)'],
     ['briefing memuat kualitas data & pelabuhan', /Prakiraan pelabuhan BMKG/.test(r.brief) && (!sc.expect.sharedCell || /Kualitas data:/.test(r.brief)), ''],
-    ['model angin gagal -> tidak pernah AMAN', !r.windFailed || r.status !== 'AMAN', r.status]
+    ['model angin gagal -> tidak pernah AMAN', !r.windFailed || r.status !== 'AMAN', r.status],
+    ['pemeriksaan kedangkalan tampil', r.depth.length > 0 && !r.depth.some(t => /sedang berjalan|tidak tersedia/.test(t)), r.depth.join(' | ')],
+    ['kedangkalan sesuai sarat', sc.expect.depth === 'r'
+      ? r.status === 'TIDAK DISARANKAN' && r.depthBad > 0
+      : r.status !== 'AMAN' && r.depthBad === 0 && r.depth.some(t => t.startsWith('Waspada kedangkalan')), `${r.status}, bahaya=${r.depthBad}`],
+    ['penanda kedangkalan di peta', r.depthMarkers > 0, String(r.depthMarkers)],
+    ['alur pelabuhan dicatat tidak dinilai', r.depth.some(t => t.startsWith('Alur pelabuhan')), ''],
+    ['briefing memuat kedalaman & sumbernya', /Kedalaman: /.test(r.brief) && /ETOPO 2022/.test(r.brief) && /Bukan untuk navigasi/.test(r.brief), '']
   ];
   return { sc, vp, r, checks, shot };
 }
@@ -127,7 +140,7 @@ async function run(browser, sc, vp) {
   let failed = 0;
   const results = [];
   try {
-    for (const sc of SCENARIOS) for (const vp of VIEWPORTS) {
+    for (const sc of SCENARIOS) for (const vp of VIEWPORTS.filter(v => !sc.viewports || sc.viewports.includes(v.id))) {
       const res = await run(browser, sc, vp);
       results.push(res);
       console.log(`\n=== ${sc.name} · ${vp.id} ${vp.width}×${vp.height} ===`);
@@ -141,12 +154,11 @@ async function run(browser, sc, vp) {
       }
       console.log('screenshot: ' + res.shot);
     }
-    const b = results.find(x => x.sc.id === 'batam' && x.vp.id === 'desktop');
-    if (b) {
-      console.log('\n--- status Batam ---\n' + b.r.statusText);
+    results.filter(x => x.vp.id === 'desktop').forEach(b => {
+      console.log(`\n--- status ${b.sc.name} ---\n` + b.r.statusText);
       console.log('slot 24 jam pertama: ' + b.r.slots.slice(0, 8).join(' '));
-      console.log('\n--- briefing Batam ---\n' + b.r.brief);
-    }
+      console.log(`\n--- briefing ${b.sc.name} ---\n` + b.r.brief);
+    });
   } finally { await browser.close(); }
   console.log(`\n${failed ? failed + ' pemeriksaan GAGAL' : 'Semua pemeriksaan lulus'}`);
   process.exit(failed ? 1 : 0);

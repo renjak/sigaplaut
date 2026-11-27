@@ -1,0 +1,11 @@
+{
+  "source": "NOAA NCEI ETOPO 2022 v1 15 arc-second (ETOPO_2022_v1_15s, CoastWatch ERDDAP), public domain",
+  "method": "shallowest of 2x2 15\" cells per 30\" cell; 0 = land/drying, 1..254 = depth m (floored), 255 = deeper than 254 m; datum ~MSL",
+  "lat0": -11.5,
+  "lon0": 95,
+  "res": 120,
+  "nlat": 2160,
+  "nlon": 5520,
+  "built": "2026-11-27T11:04:37.696Z",
+  "warning": "Not for navigation. Coarse global grid; ports and narrow channels are not resolved."
+}
