@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIGAP LAUT</title>
+<meta name="description" content="Sistem Informasi Gelombang dan Arus Pelayaran: cek gelombang, swell, dan arus di sepanjang rute kapal untuk beberapa hari ke depan.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--navy:#0b2545;--sea:#13497a;--sky:#e8f1fa;--ink:#0f1c2e;--muted:#5a6b80;--line:#d7e1ec;--bg:#f5f8fb;--card:#fff;--g:#16a05a;--a:#e2a100;--r:#d33f3f;--x:#9aa7b6}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{font:16px/1.5 "Plus Jakarta Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--navy);color:#fff;padding:14px max(4vw,16px);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:22px;letter-spacing:.02em}
+header p{margin:0;color:#b9cde3;font-size:14px}
+header .mark{width:34px;height:34px;flex:none}
+main{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+#map{height:42vh;min-height:280px;background:#cfe0ef}
+.panel{padding:16px max(4vw,16px);display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{margin:0 0 10px;font-size:17px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+label{font-size:13px;color:var(--muted);display:grid;gap:4px}
+input,select,button{font:inherit;font-size:16px}
+input,select{border:1px solid #b9c8d8;border-radius:8px;padding:9px 10px;background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--sea);outline-offset:1px}
+input.bad{border-color:var(--r);background:#fff6f6}
+button{border:0;border-radius:8px;padding:10px 14px;min-height:44px;cursor:pointer;background:var(--sky);color:var(--navy);font-weight:600}
+button.primary{background:var(--sea);color:#fff}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:wait}
+.shipgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.shipgrid .full{grid-column:1/-1}
+.shipsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5em,1fr));gap:8px;margin-bottom:10px}
+.shipsum div{background:var(--sky);border-radius:8px;padding:8px 10px}
+.shipsum span{display:block;font-size:12px;color:var(--muted)}
+.shipsum b{font-size:16px;white-space:nowrap}
+.err{color:var(--r);font-size:13px;min-height:0;margin:0}
+.wps{display:grid;gap:8px;margin:10px 0}
+.wp{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) 44px;gap:6px;align-items:center}
+.wp b{font-size:13px;color:var(--sea);text-align:center}
+.wp button{padding:0;min-height:40px;background:#fdeeee;color:var(--r)}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+.st{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px;border-radius:10px;border:1px solid var(--line)}
+.st strong{font-size:16px}
+.st .pill{font-weight:700;font-size:13px;padding:3px 10px;border-radius:99px;color:#fff;align-self:start}
+.st small{grid-column:1/-1;color:var(--muted);font-size:13px}
+.st .note{grid-column:1/-1;font-size:13px;color:#8a5a00;background:#fff6e0;border-radius:8px;padding:6px 8px;margin:4px 0 0}
+.g{background:var(--g)}.a{background:var(--a)}.r{background:var(--r)}.x{background:var(--x)}
+.win{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.day{display:grid;gap:4px;flex:none;scroll-snap-align:start}
+.day span{font-size:12px;color:var(--muted);font-weight:600}
+.slots{display:flex;gap:4px}
+.slot{width:46px;min-height:52px;padding:4px 0;border-radius:8px;color:#fff;font-size:12px;line-height:1.2;display:grid;place-items:center;border:2px solid transparent}
+.slot.sel{border-color:var(--navy);box-shadow:0 0 0 2px #fff inset}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+pre{white-space:pre-wrap;background:var(--sky);border-radius:8px;padding:12px;font:14px/1.5 "Plus Jakarta Sans",sans-serif;margin:0 0 10px}
+.warn{background:#fff6e0;border-color:#f0d58a}
+.warn ul{margin:6px 0 0;padding-left:18px;font-size:14px}
+.al{padding:8px 0;border-top:1px solid #f0d58a;font-size:14px}
+.al:first-child{border-top:0}
+.al b{display:block}
+.al span{color:var(--muted);font-size:13px}
+details summary{cursor:pointer;font-size:14px;color:var(--sea);padding:6px 0}
+.msg{font-size:14px;padding:10px 12px;border-radius:8px;background:#fdeeee;color:#8a1f1f;display:none}
+.msg.show{display:block}
+[hidden]{display:none!important}
+footer{padding:16px max(4vw,16px) 32px;color:var(--muted);font-size:13px}
+footer a,.card a{color:var(--sea)}
+@media(min-width:960px){
+ main{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
+ #map{height:calc(100vh - 62px);position:sticky;top:0}
+ .panel{max-height:calc(100vh - 62px);overflow-y:auto}
+}
+</style>
+</head>
+<body>
+<header>
+ <svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="16" fill="#13497a"/><path d="M4 20c3 0 3-3 6.5-3S14 20 17 20s3-3 6.5-3S27 20 30 20v4c-3 0-3-3-6.5-3S20 24 17 24s-3-3-6.5-3S7 24 4 24z" fill="#8fc1ec"/><path d="M17 6l5 9h-10z" fill="#fff"/></svg>
+ <div><h1>SIGAP LAUT</h1><p>Sistem Informasi Gelombang dan Arus Pelayaran · prototipe</p></div>
+</header>
+<main>
+ <div id="map" role="region" aria-label="Peta rute"></div>
+ <div class="panel">
+  <div class="msg" id="msg" role="alert"></div>
+
+  <section class="card" id="shipCard">
+   <h2>Data teknis kapal</h2>
+   <div id="shipView" hidden>
+    <div class="shipsum" id="shipSum"></div>
+    <button type="button" class="ghost" id="editShip">Ubah data kapal</button>
+   </div>
+   <form id="shipForm" class="shipgrid" novalidate>
+    <label class="full">Nama kapal (opsional)<input id="sName" maxlength="40" autocomplete="off"></label>
+    <label>Panjang / LOA (m)<input id="sLoa" type="number" inputmode="decimal" min="3" max="400" step="0.1"></label>
+    <label>Lebar (m)<input id="sBeam" type="number" inputmode="decimal" min="1" max="80" step="0.1"></label>
+    <label>Sarat (m)<input id="sDraft" type="number" inputmode="decimal" min="0.2" max="25" step="0.1"></label>
+    <label>Kecepatan jelajah (knot) *<input id="sSpeed" type="number" inputmode="decimal" min="2" max="45" step="0.5"></label>
+    <label>Jarak jelajah (NM)<input id="sRange" type="number" inputmode="numeric" min="10" max="30000" step="10"></label>
+    <label>Batas gelombang aman (m) *<input id="sHs" type="number" inputmode="decimal" min="0.3" max="15" step="0.05"></label>
+    <label>Batas arus (knot)<input id="sCur" type="number" inputmode="decimal" min="0.3" max="10" step="0.1"></label>
+    <label class="full">Batas angin (knot)<input id="sWind" type="number" inputmode="decimal" min="5" max="80" step="1"></label>
+    <p class="err full" id="shipErr" role="alert"></p>
+    <p class="hint full">* wajib. Batas gelombang aman = tinggi gelombang signifikan maksimum yang diizinkan untuk kapal ini, sesuai dokumen stabilitas atau ketentuan operasional.</p>
+    <button class="primary full" type="submit">Simpan data kapal</button>
+   </form>
+  </section>
+
+  <section class="card">
+   <h2>Status rute</h2>
+   <div id="status"><div class="hint">Isi data teknis kapal untuk mulai.</div></div>
+   <p class="hint" id="meta"></p>
+  </section>
+
+  <section class="card">
+   <h2>Jendela berangkat terbaik</h2>
+   <div class="legend"><span><i class="g"></i>Aman</span><span><i class="a"></i>Waspada</span><span><i class="r"></i>Tidak disarankan</span><span><i class="x"></i>Di luar jangkauan data</span></div>
+   <p class="hint" id="winFor"></p>
+   <div class="win" id="win"></div>
+  </section>
+
+  <section class="card">
+   <h2>Rencana pelayaran</h2>
+   <div class="row">
+    <label style="flex:1 1 180px">Contoh rute
+     <select id="preset"></select></label>
+   </div>
+   <div class="wps" id="wps"></div>
+   <div class="row">
+    <button type="button" id="addWp">+ Tambah titik</button>
+    <button type="button" class="ghost" id="clearWp">Hapus semua</button>
+   </div>
+   <p class="hint">Ketuk peta untuk menambah titik. Format koordinat: desimal (-7.25) atau derajat-menit (7°15'S, 112°45'E).</p>
+   <div class="row" style="margin-top:12px">
+    <label style="flex:1 1 190px">Berangkat (WIB)<input type="datetime-local" id="depart"></label>
+    <label style="flex:1 1 90px">Kecepatan rencana (knot)<input type="number" id="speed" min="2" max="45" step="0.5"></label>
+    <label style="flex:1 1 90px">Margin aman (m)<input type="number" id="margin" min="0" max="2" step="0.1" value="0.5"></label>
+   </div>
+   <div class="row" style="margin-top:12px">
+    <button type="button" class="primary" id="calc" style="flex:1">Hitung prakiraan rute</button>
+   </div>
+  </section>
+
+  <section class="card">
+   <h2>Detail per titik</h2>
+   <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input type="checkbox" id="allPts" style="width:20px;height:20px"> Tampilkan titik bantu tiap 20 NM</label>
+   <div class="scroll"><table id="tbl"><thead><tr><th>Titik</th><th>Tiba (WIB)</th><th>Gel. (m)</th><th>Angin</th><th>Arus</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+   <p class="hint">Gel. = tinggi gelombang signifikan, rentang antarmodel (terendah–tertinggi). Angin dan arus dalam knot. Status memakai nilai tertinggi + margin, serta batas angin dan arus kapal.</p>
+  </section>
+
+  <section class="card">
+   <h2>Briefing untuk komandan</h2>
+   <pre id="brief">–</pre>
+   <button type="button" id="copy">Salin briefing</button>
+  </section>
+
+  <section class="card warn" id="bmkgCard">
+   <h2>Peringatan dini cuaca BMKG (langsung)</h2>
+   <div id="bmkgList"><div class="hint">Mengambil peringatan dari BMKG…</div></div>
+   <p class="hint">Sumber: peringatan dini cuaca BMKG (format CAP, diperbarui berkala). Peringatan ini untuk cuaca ekstrem jangka pendek (beberapa jam) di darat dan pesisir. Peringatan gelombang resmi BMKG lihat <a href="https://www.bmkg.go.id/cuaca/maritim">bmkg.go.id/cuaca/maritim</a>.</p>
+  </section>
+ </div>
+</main>
+<footer>
+ Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
+ Prototipe alat bantu perencanaan, bukan pengganti informasi resmi BMKG dan keputusan komandan. Pada prototipe ini koordinat dikirim ke Open-Meteo lewat server Vercel; versi operasional dijalankan di server internal agar rute tidak keluar.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+{
+const $ = id => document.getElementById(id);
+const COL = { g: '#16a05a', a: '#e2a100', r: '#d33f3f', x: '#9aa7b6' };
+const LBL = { g: 'AMAN', a: 'WASPADA', r: 'TIDAK DISARANKAN', x: 'TANPA DATA' };
+const RANK = { x: 0, g: 1, a: 2, r: 3 };
+const STEP_NM = 20;
+const fmt1 = v => (v == null || !Number.isFinite(v)) ? '–' : v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtN = v => (+v).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+const fmtT = (ms, opt) => new Intl.DateTimeFormat('id-ID', Object.assign({ timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }, opt || {})).format(new Date(ms));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const PRESETS = [
+ { name: 'Surabaya → Kupang', wps: [[-7.05, 112.78], [-7.20, 113.95], [-7.75, 115.35], [-7.95, 117.60], [-8.10, 120.00], [-9.10, 122.60], [-10.10, 123.50]] },
+ { name: 'Selatan Yogyakarta (patroli)', wps: [[-7.80, 109.05], [-8.55, 109.80], [-8.95, 110.60], [-8.60, 111.40], [-8.00, 110.20], [-7.80, 109.05]] },
+ { name: 'Jakarta → Ranai (Natuna)', wps: [[-5.95, 106.90], [-4.60, 106.95], [-2.70, 107.05], [-1.20, 107.40], [1.00, 107.90], [3.00, 108.30], [3.95, 108.45]] },
+ { name: 'Rute kosong (buat sendiri)', wps: [] }
+];
+const SHIP_FIELDS = [['sName', 'name'], ['sLoa', 'loa'], ['sBeam', 'beam'], ['sDraft', 'draft'], ['sSpeed', 'speed'], ['sRange', 'range'], ['sHs', 'hs'], ['sCur', 'cur'], ['sWind', 'wind']];
+
+let S = { wps: [], ship: null, data: null, dataKey: '', samples: [] };
+try {
+ const saved = JSON.parse(localStorage.getItem('sl-state') || 'null');
+ if (saved && Array.isArray(saved.wps)) S.wps = saved.wps;
+ const ship = JSON.parse(localStorage.getItem('sl-ship') || 'null');
+ if (ship && ship.hs > 0 && ship.speed > 0) S.ship = ship;
+ const sd = JSON.parse(localStorage.getItem('sl-data2') || 'null');
+ if (sd && sd.key) { S.data = sd.data; S.dataKey = sd.key; }
+} catch (e) {}
+const save = () => { try { localStorage.setItem('sl-state', JSON.stringify({ wps: S.wps })); } catch (e) {} };
+
+function parseCoord(str) {
+ const s = String(str).trim().toUpperCase().replace(',', '.');
+ if (!s) return NaN;
+ if (/^-?\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+ const m = s.match(/(-?\d+(?:\.\d+)?)\s*[°D ]\s*(\d+(?:\.\d+)?)?\s*['M]?\s*(\d+(?:\.\d+)?)?\s*["S]?\s*([NSEWUTLB])?/);
+ if (!m) return NaN;
+ let v = Math.abs(parseFloat(m[1])) + (parseFloat(m[2]) || 0) / 60 + (parseFloat(m[3]) || 0) / 3600;
+ const h = (s.match(/[NSEWUTB]\s*$/) || [''])[0].trim();
+ if (h === 'S' || h === 'W' || h === 'B' || parseFloat(m[1]) < 0) v = -v;
+ return v;
+}
+const fmtC = (v, isLat) => { const a = Math.abs(v), d = Math.floor(a), mm = ((a - d) * 60).toFixed(1); return d + '°' + mm + "'" + (isLat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')); };
+
+function nm(a, b) {
+ const R = 3440.065, toR = Math.PI / 180;
+ const dLat = (b[0] - a[0]) * toR, dLon = (b[1] - a[1]) * toR;
+ const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLon / 2) ** 2;
+ return 2 * R * Math.asin(Math.sqrt(h));
+}
+function buildSamples(wps) {
+ const out = [];
+ if (wps.length < 2) return out;
+ let cum = 0;
+ for (let i = 0; i < wps.length - 1; i++) {
+  const a = wps[i], b = wps[i + 1], d = nm(a, b), n = Math.max(1, Math.ceil(d / STEP_NM));
+  for (let k = 0; k < n; k++) {
+   const f = k / n;
+   out.push({ lat: a[0] + (b[0] - a[0]) * f, lon: a[1] + (b[1] - a[1]) * f, cum: cum + d * f, wp: k === 0 ? i : null, seg: i });
+  }
+  cum += d;
+ }
+ const last = wps[wps.length - 1];
+ out.push({ lat: last[0], lon: last[1], cum, wp: wps.length - 1, seg: wps.length - 2 });
+ return out;
+}
+const keyOf = samples => samples.map(p => p.lat.toFixed(2) + ',' + p.lon.toFixed(2)).join(';');
+
+// ---------- map ----------
+const map = L.map('map', { zoomControl: true }).setView([-5.5, 116], 5);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '© OpenStreetMap' }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+map.on('click', e => { S.wps.push([+e.latlng.lat.toFixed(3), +e.latlng.lng.toFixed(3)]); afterRouteChange(); });
+
+// ---------- ship form ----------
+function showShip() {
+ const s = S.ship;
+ $('shipForm').hidden = !!s; $('shipView').hidden = !s;
+ if (!s) return;
+ const items = [['Kapal', s.name || '–'], ['LOA', s.loa ? fmtN(s.loa) + ' m' : '–'], ['Lebar', s.beam ? fmtN(s.beam) + ' m' : '–'], ['Sarat', s.draft ? fmtN(s.draft) + ' m' : '–'],
+  ['Jelajah', fmtN(s.speed) + ' kn'], ['Jarak jelajah', s.range ? fmtN(s.range) + ' NM' : '–'], ['Batas gelombang', fmtN(s.hs) + ' m'], ['Batas arus', s.cur ? fmtN(s.cur) + ' kn' : '–'], ['Batas angin', s.wind ? fmtN(s.wind) + ' kn' : '–']];
+ $('shipSum').innerHTML = items.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('');
+}
+function fillShipForm() {
+ SHIP_FIELDS.forEach(([id, k]) => { $(id).value = S.ship && S.ship[k] != null ? S.ship[k] : ''; $(id).classList.remove('bad'); });
+ $('shipErr').textContent = '';
+}
+$('shipForm').addEventListener('submit', e => {
+ e.preventDefault();
+ const s = {}, errs = [];
+ SHIP_FIELDS.forEach(([id, k]) => {
+  const el = $(id); el.classList.remove('bad');
+  if (k === 'name') { s.name = el.value.trim(); return; }
+  const raw = el.value.trim();
+  if (!raw) { s[k] = null; return; }
+  const v = parseFloat(raw.replace(',', '.')), min = +el.min, max = +el.max;
+  if (!Number.isFinite(v) || v < min || v > max) { el.classList.add('bad'); errs.push(el.parentElement.firstChild.textContent.replace('*', '').trim() + ` (${fmtN(min)}–${fmtN(max)})`); }
+  else s[k] = v;
+ });
+ if (!s.speed) { $('sSpeed').classList.add('bad'); if (!errs.length) errs.push('Kecepatan jelajah wajib diisi'); }
+ if (!s.hs) { $('sHs').classList.add('bad'); if (!errs.some(x => x.startsWith('Batas gelombang'))) errs.push('Batas gelombang aman wajib diisi'); }
+ if (errs.length) { $('shipErr').textContent = 'Periksa: ' + errs.join('; ') + '.'; return; }
+ S.ship = s;
+ try { localStorage.setItem('sl-ship', JSON.stringify(s)); } catch (err) {}
+ $('speed').value = s.speed;
+ showShip(); compute();
+});
+SHIP_FIELDS.forEach(([id]) => $(id).addEventListener('input', () => { $(id).classList.remove('bad'); $('shipErr').textContent = ''; }));
+$('editShip').addEventListener('click', () => { fillShipForm(); $('shipForm').hidden = false; $('shipView').hidden = true; $('sName').focus(); });
+
+// ---------- route UI ----------
+$('preset').innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
+$('preset').addEventListener('change', e => { S.wps = PRESETS[+e.target.value].wps.map(w => w.slice()); afterRouteChange(true); });
+
+function renderWps() {
+ $('wps').innerHTML = S.wps.map((w, i) => `
+  <div class="wp"><b>WP${i + 1}</b>
+   <input aria-label="Lintang WP${i + 1}" data-i="${i}" data-k="0" value="${esc(fmtC(w[0], true))}">
+   <input aria-label="Bujur WP${i + 1}" data-i="${i}" data-k="1" value="${esc(fmtC(w[1], false))}">
+   <button type="button" aria-label="Hapus WP${i + 1}" data-del="${i}">✕</button></div>`).join('') || '<p class="hint">Belum ada titik. Pilih contoh rute atau ketuk peta.</p>';
+}
+$('wps').addEventListener('change', e => {
+ const t = e.target; if (t.dataset.i == null) return;
+ const v = parseCoord(t.value);
+ if (!Number.isFinite(v)) { showMsg('Format koordinat WP' + (+t.dataset.i + 1) + ' tidak dikenali.'); renderWps(); return; }
+ S.wps[+t.dataset.i][+t.dataset.k] = v; afterRouteChange();
+});
+$('wps').addEventListener('click', e => { const d = e.target.dataset.del; if (d != null) { S.wps.splice(+d, 1); afterRouteChange(); } });
+$('addWp').addEventListener('click', () => {
+ const last = S.wps[S.wps.length - 1] || [-6, 112];
+ S.wps.push([+(last[0] - 0.3).toFixed(3), +(last[1] + 0.5).toFixed(3)]); afterRouteChange();
+});
+$('clearWp').addEventListener('click', () => { S.wps = []; afterRouteChange(); });
+
+function showMsg(t) { const m = $('msg'); m.textContent = t; m.classList.toggle('show', !!t); }
+
+// ---------- time inputs ----------
+const nextHour = () => Math.ceil(Date.now() / 3600e3) * 3600e3;
+const toLocalInput = ms => new Date(ms + 7 * 3600e3).toISOString().slice(0, 16);
+const fromLocalInput = s => Date.parse(s + ':00+07:00');
+$('depart').value = toLocalInput(nextHour());
+['depart', 'speed', 'margin', 'allPts'].forEach(id => $(id).addEventListener('change', () => compute()));
+
+// ---------- data ----------
+function normalize(j) {
+ const t = (j.t || []).map(x => x * 1000);
+ return j.points.map(p => ({ t, hx: p.hx, hn: p.hn, sw: p.sw, tp: p.tp, cur: p.cur, w: p.w, g: p.g }));
+}
+async function fetchData(samples) {
+ const lat = samples.map(p => p.lat.toFixed(3)).join(','), lon = samples.map(p => p.lon.toFixed(3)).join(',');
+ try {
+  const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'gagal');
+  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], at: j.fetchedAt };
+ } catch (e) {
+  const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&forecast_days=7&timeformat=unixtime&hourly=wave_height,wave_period,swell_wave_height,ocean_current_velocity`);
+  if (!r.ok) throw new Error('Sumber data tidak dapat dihubungi.');
+  let j = await r.json(); if (!Array.isArray(j)) j = [j];
+  const t = j[0].hourly.time.map(x => x * 1000);
+  const pts = j.map(p => { const h = p.hourly; const c = (h.ocean_current_velocity || []).map(v => v == null ? null : v / 1.852); return { t, hx: h.wave_height, hn: h.wave_height, sw: h.swell_wave_height || [], tp: h.wave_period || [], cur: c, w: [], g: [] }; });
+  return { pts, source: 'Open-Meteo Marine (langsung, 1 model)', waveModels: ['Open-Meteo (best match)'], windModels: [], at: Date.now() };
+ }
+}
+
+// ---------- BMKG warnings ----------
+let WARN = { alerts: [], at: null, err: null };
+const warnLayer = L.layerGroup().addTo(map);
+function pip(pt, poly) {
+ let inside = false;
+ for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+  const [yi, xi] = poly[i], [yj, xj] = poly[j];
+  if (((yi > pt[0]) !== (yj > pt[0])) && (pt[1] < (xj - xi) * (pt[0] - yi) / (yj - yi) + xi)) inside = !inside;
+ }
+ return inside;
+}
+function nearRoute(a) {
+ const pts = buildSamples(S.wps).map(p => [p.lat, p.lon]);
+ if (!pts.length) S.wps.forEach(w => pts.push(w));
+ return a.polys.some(poly => pts.some(pt => pip(pt, poly) || poly.some(v => nm(pt, v) < 10)));
+}
+function renderWarnings() {
+ warnLayer.clearLayers();
+ if (!WARN.at && !WARN.err) return;
+ const now = Date.now();
+ const act = WARN.alerts.filter(a => !a.expires || a.expires > now);
+ act.forEach(a => { a.near = nearRoute(a); });
+ act.forEach(a => a.polys.forEach(poly => L.polygon(poly, { color: a.near ? '#d33f3f' : '#e07b00', weight: a.near ? 2 : 1, fillOpacity: a.near ? .25 : .08 }).bindTooltip(a.headline).addTo(warnLayer)));
+ const near = act.filter(a => a.near), other = act.filter(a => !a.near);
+ const item = a => `<div class="al"><b>${esc(a.headline || a.event)}</b><span>${esc(a.event)} · ${a.effective ? fmtT(a.effective) : '–'} s.d. ${a.expires ? fmtT(a.expires) : '–'} WIB · <a href="${esc(a.url)}">detail BMKG</a></span></div>`;
+ if (WARN.err) { $('bmkgList').innerHTML = `<div class="hint">${esc(WARN.err)}</div>`; return; }
+ $('bmkgList').innerHTML =
+  (near.length ? `<p style="margin:0 0 4px;font-weight:600;color:#a12d2d">${near.length} peringatan aktif dekat rute (±10 NM)</p>${near.map(item).join('')}` : '<p style="margin:0 0 4px">Tidak ada peringatan aktif dalam ±10 NM dari rute.</p>') +
+  (other.length ? `<details><summary>${other.length} peringatan aktif lain di Indonesia</summary>${other.map(item).join('')}</details>` : '') +
+  `<p class="hint">Diambil ${WARN.at ? fmtT(WARN.at) : '–'} WIB.</p>`;
+}
+async function loadWarnings() {
+ try {
+  const r = await fetch('/api/bmkg-warnings');
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'gagal');
+  WARN = { alerts: j.alerts || [], at: j.fetchedAt, err: null };
+ } catch (e) { WARN = { alerts: [], at: null, err: 'Peringatan BMKG tidak dapat diambil saat ini. Cek langsung di bmkg.go.id.' }; }
+ renderWarnings(); compute();
+}
+
+// ---------- core calc ----------
+function valAt(pt, field, ms) {
+ if (!pt || !pt.t.length) return undefined;
+ const i = Math.round((ms - pt.t[0]) / 3600e3);
+ if (i < 0 || i >= pt.t.length) return undefined;
+ const v = (pt[field] || [])[i];
+ return v == null ? null : v;
+}
+function verdict(r, margin) {
+ if (r.hs === undefined || r.hs === null) return 'x';
+ const sh = S.ship, e = r.hs + margin;
+ let v = 'g';
+ if (e > sh.hs) return 'r';
+ if (e > 0.8 * sh.hs) v = 'a';
+ if (sh.wind && r.w != null) { if (r.w > sh.wind) return 'r'; if (r.w > 0.8 * sh.wind) v = 'a'; }
+ if (sh.cur && r.cur != null && r.cur > sh.cur) v = 'a';
+ return v;
+}
+function trip(depart, speed, margin) {
+ const rows = S.samples.map((p, i) => {
+  const eta = depart + p.cum / speed * 3600e3, pt = S.data.pts[i];
+  return { p, eta, hs: valAt(pt, 'hx', eta), hn: valAt(pt, 'hn', eta), sw: valAt(pt, 'sw', eta), tp: valAt(pt, 'tp', eta), cur: valAt(pt, 'cur', eta), w: valAt(pt, 'w', eta), g: valAt(pt, 'g', eta) };
+ });
+ rows.forEach(r => { r.vd = verdict(r, margin); });
+ const out = rows.some(r => r.hs === undefined);
+ let worst = 'g', maxE = -1, at = null, maxC = -1, atC = null, maxW = -1, atW = null, spread = 0, atS = null;
+ rows.forEach(r => {
+  if (r.vd !== 'x' && RANK[r.vd] > RANK[worst]) worst = r.vd;
+  if (r.hs != null && r.hs + margin > maxE) { maxE = r.hs + margin; at = r; }
+  if (r.cur != null && r.cur > maxC) { maxC = r.cur; atC = r; }
+  if (r.w != null && r.w > maxW) { maxW = r.w; atW = r; }
+  if (r.hs != null && r.hn != null && r.hs - r.hn > spread) { spread = r.hs - r.hn; atS = r; }
+ });
+ if (rows.every(r => r.hs === undefined)) worst = 'x';
+ return { rows, worst, maxE, at, maxC, atC, maxW, atW, spread, atS, out };
+}
+const segName = r => `WP${r.p.seg + 1}–WP${r.p.seg + 2}`;
+
+function afterRouteChange(fromPreset) {
+ if (!fromPreset) $('preset').value = String(PRESETS.length - 1);
+ save(); renderWps(); drawRoute(); renderWarnings();
+ if (keyOf(buildSamples(S.wps)) !== S.dataKey) { $('status').innerHTML = '<div class="hint">Rute berubah. Tekan "Hitung prakiraan rute".</div>'; $('meta').textContent = ''; }
+ else compute();
+}
+
+function drawRoute(rows) {
+ layer.clearLayers();
+ if (rows && rows.length) {
+  for (let i = 0; i < rows.length - 1; i++) {
+   L.polyline([[rows[i].p.lat, rows[i].p.lon], [rows[i + 1].p.lat, rows[i + 1].p.lon]], { color: COL[rows[i + 1].vd], weight: 6, opacity: .9 }).addTo(layer);
+  }
+ } else if (S.wps.length > 1) {
+  L.polyline(S.wps, { color: '#13497a', weight: 4, dashArray: '6 6' }).addTo(layer);
+ }
+ S.wps.forEach((w, i) => L.circleMarker(w, { radius: 7, color: '#0b2545', weight: 2, fillColor: '#fff', fillOpacity: 1 })
+  .bindTooltip('WP' + (i + 1), { permanent: true, direction: 'top', offset: [0, -6] }).addTo(layer));
+}
+
+async function calc() {
+ showMsg('');
+ S.samples = buildSamples(S.wps);
+ if (S.samples.length < 2) { showMsg('Minimal 2 titik rute.'); return; }
+ if (S.samples.length > 80) { showMsg('Rute terlalu panjang untuk prototipe (maks. ±1.500 NM). Bagi menjadi beberapa rute.'); return; }
+ const btn = $('calc'); btn.disabled = true; btn.textContent = 'Mengambil prakiraan…';
+ try {
+  S.data = await fetchData(S.samples);
+  S.dataKey = keyOf(S.samples);
+  try { localStorage.setItem('sl-data2', JSON.stringify({ key: S.dataKey, data: S.data })); } catch (e) {}
+  compute();
+ } catch (e) {
+  showMsg('Gagal mengambil prakiraan: ' + e.message + (S.data ? ' Menampilkan data tersimpan terakhir.' : ''));
+ } finally { btn.disabled = false; btn.textContent = 'Hitung prakiraan rute'; }
+}
+$('calc').addEventListener('click', calc);
+
+function compute() {
+ S.samples = buildSamples(S.wps);
+ if (!S.ship) { $('status').innerHTML = '<div class="hint">Isi data teknis kapal untuk mulai.</div>'; drawRoute(); return; }
+ if (!S.data || keyOf(S.samples) !== S.dataKey || S.samples.length < 2) { drawRoute(); return; }
+ const sh = S.ship;
+ const depart = fromLocalInput($('depart').value), speed = Math.max(2, +$('speed').value || sh.speed), margin = Math.max(0, +$('margin').value || 0);
+ if (!Number.isFinite(depart)) return;
+ const T = trip(depart, speed, margin);
+ drawRoute(T.rows);
+ const total = S.samples[S.samples.length - 1].cum, hours = total / speed, arrive = depart + hours * 3600e3;
+ const name = sh.name || 'Kapal';
+ const notes = [];
+ if (sh.range && total > sh.range) notes.push(`Panjang rute ${Math.round(total)} NM melebihi jarak jelajah kapal ${fmtN(sh.range)} NM. Rencanakan pengisian bahan bakar.`);
+ if (sh.cur && T.maxC > sh.cur) notes.push(`Arus maks. ${fmt1(T.maxC)} kn di ${segName(T.atC)} melebihi batas arus ${fmtN(sh.cur)} kn.`);
+ if (sh.draft) notes.push(`Sarat ${fmtN(sh.draft)} m: periksa kedalaman alur dan pelabuhan pada peta laut.`);
+ if (sh.wind && T.maxW > sh.wind) notes.push(`Angin maks. ${Math.round(T.maxW)} kn di ${segName(T.atW)} melebihi batas angin ${fmtN(sh.wind)} kn.`);
+ if (T.spread > 0.5) notes.push(`Model berbeda hingga ${fmt1(T.spread)} m di ${segName(T.atS)}: ketidakpastian tinggi, pantau pembaruan.`);
+ const nearW = WARN.alerts.filter(a => (!a.expires || a.expires > Date.now()) && nearRoute(a));
+ if (nearW.length) notes.push(`${nearW.length} peringatan dini cuaca BMKG aktif dekat rute: ${nearW.map(a => a.event).filter((v, i, x) => x.indexOf(v) === i).join(', ')}.`);
+ if (speed > sh.speed) notes.push(`Kecepatan rencana ${fmt1(speed)} kn di atas kecepatan jelajah ${fmtN(sh.speed)} kn.`);
+
+ $('status').innerHTML = `<div class="st"><strong>${esc(name)}</strong><span class="pill ${T.worst}">${LBL[T.worst]}</span>
+  <small>Maks. efektif ${fmt1(T.maxE)} m (gelombang + margin ${fmt1(margin)} m)${T.at ? ` di ${segName(T.at)}, ${fmtT(T.at.eta)} WIB` : ''} · batas ${fmtN(sh.hs)} m${T.maxW >= 0 ? ` · angin maks. ${Math.round(T.maxW)} kn` : ''}${T.out ? ' · sebagian rute di luar jangkauan data' : ''}</small>
+  ${notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}</div>`;
+ $('meta').textContent = `${Math.round(total)} NM · ${fmt1(hours)} jam · tiba ${fmtT(arrive)} WIB · gelombang: ${(S.data.waveModels || []).join(', ') || '–'} · angin: ${(S.data.windModels || []).join(', ') || '–'} · diambil ${fmtT(S.data.at)} WIB`;
+
+ $('tbl').querySelector('tbody').innerHTML = T.rows.filter(r => r.p.wp != null || $('allPts').checked).map(r => {
+  const nm_ = r.p.wp != null ? `<b>WP${r.p.wp + 1}</b>` : `<span style="color:var(--muted)">· ${Math.round(r.p.cum)} NM</span>`;
+  return `<tr><td>${nm_}</td><td>${fmtT(r.eta, { month: undefined })}</td><td>${r.hn != null && r.hs != null && r.hs - r.hn >= 0.05 ? fmt1(r.hn) + '–' + fmt1(r.hs) : fmt1(r.hs)}</td><td>${r.w == null ? '–' : Math.round(r.w) + (r.g != null ? ' (' + Math.round(r.g) + ')' : '')}</td><td>${fmt1(r.cur)}</td><td><span class="dot ${r.vd}"></span>${r.vd === 'x' ? '–' : LBL[r.vd].toLowerCase()}</td></tr>`;
+ }).join('');
+
+ $('winFor').textContent = `Untuk ${name} pada ${fmt1(speed)} knot. Ketuk jam untuk memilih waktu berangkat.`;
+ const start = nextHour(), slots = [];
+ for (let k = 0; k < 64; k++) {
+  const d = start + k * 3 * 3600e3, t = trip(d, speed, margin);
+  slots.push({ d, vd: t.out ? 'x' : t.worst, maxE: t.maxE });
+  if (t.out && slots.filter(s => s.vd === 'x').length > 2) break;
+ }
+ const days = {};
+ slots.forEach(s => { const k = fmtT(s.d, { hour: undefined, minute: undefined }); (days[k] = days[k] || []).push(s); });
+ $('win').innerHTML = Object.entries(days).map(([day, ss]) => `<div class="day"><span>${esc(day)}</span><div class="slots">${ss.map(s =>
+  `<button type="button" class="slot ${s.vd}${Math.abs(s.d - depart) < 90e4 ? ' sel' : ''}" data-d="${s.d}" aria-label="Berangkat ${fmtT(s.d)}">${fmtT(s.d, { weekday: undefined, day: undefined, month: undefined })}<br>${s.vd === 'x' ? '–' : fmt1(s.maxE) + 'm'}</button>`).join('')}</div></div>`).join('');
+ const best = slots.find(s => s.vd === 'g') || slots.filter(s => s.vd !== 'x').sort((a, b) => RANK[a.vd] - RANK[b.vd] || a.maxE - b.maxE)[0];
+
+ const spec = [sh.loa && `LOA ${fmtN(sh.loa)} m`, sh.beam && `lebar ${fmtN(sh.beam)} m`, sh.draft && `sarat ${fmtN(sh.draft)} m`, `jelajah ${fmtN(sh.speed)} kn`, sh.range && `jarak jelajah ${fmtN(sh.range)} NM`].filter(Boolean).join(', ');
+ const lines = [
+  'SIGAP LAUT – RINGKASAN RUTE',
+  `Kapal: ${name} (${spec})`,
+  `Batas: gelombang ${fmtN(sh.hs)} m${sh.wind ? `, angin ${fmtN(sh.wind)} kn` : ''}${sh.cur ? `, arus ${fmtN(sh.cur)} kn` : ''}; margin +${fmt1(margin)} m`,
+  `Rute: WP1 → WP${S.wps.length} (${Math.round(total)} NM), ${fmt1(speed)} knot, ±${fmt1(hours)} jam`,
+  `Berangkat: ${fmtT(depart)} WIB · Tiba: ${fmtT(arrive)} WIB`,
+  '',
+  `STATUS: ${LBL[T.worst]} – maks. efektif ${fmt1(T.maxE)} m${T.at ? ` (${segName(T.at)}, ${fmtT(T.at.eta)} WIB)` : ''}`
+ ];
+ if (T.maxW >= 0) lines.push(`Angin maks.: ${Math.round(T.maxW)} kn${T.atW ? ` (${segName(T.atW)}, ${fmtT(T.atW.eta)} WIB)` : ''}`);
+ if (T.maxC >= 0) lines.push(`Arus maks.: ${fmt1(T.maxC)} kn${T.atC ? ` (${segName(T.atC)})` : ''}`);
+ notes.forEach(n => lines.push('Catatan: ' + n));
+ if (best) lines.push('', best.vd === 'r'
+  ? `Jendela berangkat: tidak ada waktu aman dalam jangkauan prakiraan. Kondisi paling ringan: berangkat ${fmtT(best.d)} WIB (maks. efektif ${fmt1(best.maxE)} m).`
+  : best.vd === 'g' ? `Jendela aman terdekat: berangkat ${fmtT(best.d)} WIB (maks. efektif ${fmt1(best.maxE)} m).`
+  : `Belum ada waktu aman; risiko paling rendah: berangkat ${fmtT(best.d)} WIB (${LBL[best.vd].toLowerCase()}, maks. efektif ${fmt1(best.maxE)} m).`);
+ if (T.out) lines.push('Catatan: sebagian rute di luar jangkauan prakiraan.');
+ lines.push('', `Sumber: gelombang ${(S.data.waveModels || []).join(', ')}; angin ${(S.data.windModels || []).join(', ') || '–'} (via Open-Meteo, diambil ${fmtT(S.data.at)} WIB); peringatan dini cuaca BMKG. Nilai gelombang = tertinggi antarmodel. Cek peringatan gelombang resmi BMKG sebelum berlayar.`);
+ $('brief').textContent = lines.join('\n');
+}
+$('win').addEventListener('click', e => { const b = e.target.closest('.slot'); if (b) { $('depart').value = toLocalInput(+b.dataset.d); compute(); } });
+$('copy').addEventListener('click', async () => {
+ try { await navigator.clipboard.writeText($('brief').textContent); $('copy').textContent = 'Tersalin'; }
+ catch (e) { $('copy').textContent = 'Salin manual dari kotak di atas'; }
+ setTimeout(() => { $('copy').textContent = 'Salin briefing'; }, 2000);
+});
+
+// ---------- boot ----------
+if (!S.wps.length) { S.wps = PRESETS[0].wps.map(w => w.slice()); $('preset').value = '0'; }
+else { const pi = PRESETS.findIndex(p => JSON.stringify(p.wps) === JSON.stringify(S.wps)); $('preset').value = String(pi >= 0 ? pi : PRESETS.length - 1); }
+$('speed').value = S.ship ? S.ship.speed : 14;
+fillShipForm(); showShip(); renderWps(); drawRoute();
+if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30] });
+if (S.data && keyOf(buildSamples(S.wps)) === S.dataKey) compute();
+calc();
+loadWarnings();
+}
+</script>
+</body>
+</html>

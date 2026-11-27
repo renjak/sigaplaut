@@ -1,0 +1,7 @@
+{
+  "name": "sigap-laut",
+  "private": true,
+  "description": "SIGAP LAUT - perencana rute pelayaran berbasis prakiraan gelombang, angin, arus, dan peringatan BMKG",
+  "scripts": { "test": "node --test tests/*.test.js" },
+  "engines": { "node": ">=20" }
+}
