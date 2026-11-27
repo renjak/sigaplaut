@@ -32,3 +32,12 @@ Rute dihitung di server dari grid; koordinat rute tidak dikirim ke luar. Nilai d
 - Pembaca `lib/cmgrid.js`: teruji unit (sel/jam terdekat, sel kosong→null, di luar grid/waktu→null, provenance).
 - **Belum dijalankan dengan data asli** (menunggu akun Copernicus). Setelah kredensial ada, jalankan ingest lalu bandingkan dengan Open-Meteo.
 - Integrasi ke `/api/forecast` sebagai sumber pembanding/utama: langkah berikut, bergantung keputusan penyimpanan (K1 di audit Fase 0).
+
+## Menjalankan dengan data asli (di sesi yang membawa kredensial Copernicus)
+Setelah `COPERNICUSMARINE_SERVICE_USERNAME` & `_PASSWORD` tersedia (sesi baru), dua perintah:
+```
+python3 scripts/ingest_copernicus.py --bbox -7 2 103 108 --days 3   # unduh grid area rute Batam–Jakarta
+python3 scripts/compare_copernicus.py --hours 12                    # bandingkan dgn Open-Meteo di tiap WP
+```
+`compare_copernicus.py` menampilkan gelombang & arus Copernicus vs Open-Meteo per waypoint pada jam yang sama,
+beserta selisih rata-rata — untuk memastikan data masuk akal sebelum dipakai. Tidak mengubah aplikasi.
