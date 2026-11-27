@@ -4,3 +4,4 @@ e2e/screenshots
 .env*
 data/cmgrid.bin.gz
 data/cmgrid.json
+.cmenv
