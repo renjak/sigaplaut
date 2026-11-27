@@ -91,18 +91,28 @@ def real(args):
                start_datetime=start, end_datetime=end)
     wav = cm.open_dataset(dataset_id=WAV_DS, variables=['VHM0', 'VTPK', 'VMDR', 'VHM0_SW1'], **sub).load()
     cur = cm.open_dataset(dataset_id=CUR_DS, variables=['utotal', 'vtotal'], **sub).load()
+    # Buang dimensi kedalaman tunggal (arus permukaan) agar tiap langkah waktu = [lintang, bujur].
+    def squeeze(ds):
+        d = next((x for x in ('depth', 'deptht', 'elevation') if x in ds.dims), None)
+        return ds.isel({d: 0}, drop=True) if d else ds
+    wav = squeeze(wav)
+    cur = squeeze(cur)
+    # Samakan arus ke grid gelombang (keduanya 1/12°; jamin bentuk array cocok).
+    cur = cur.reindex(latitude=wav.latitude, longitude=wav.longitude, method='nearest')
     lats = [float(x) for x in wav.latitude.values]
     lons = [float(x) for x in wav.longitude.values]
     nlat, nlon = len(lats), len(lons)
     times = [int(np.datetime64(t, 's').astype('int64')) for t in wav.time.values]
     # arus per jam -> ambil langkah terdekat untuk tiap jam gelombang
     cur_t = [int(np.datetime64(t, 's').astype('int64')) for t in cur.time.values]
-    ispd = np.hypot(cur['utotal'].values, cur['vtotal'].values) * 1.94384
-    idir = (np.degrees(np.arctan2(cur['utotal'].values, cur['vtotal'].values)) + 360) % 360   # arah menuju
+    uu, vv = cur['utotal'].values, cur['vtotal'].values            # [waktu, lintang, bujur]
+    ispd = np.hypot(uu, vv) * 1.94384
+    idir = (np.degrees(np.arctan2(uu, vv)) + 360) % 360            # arah menuju
     grids = {v: [] for v in VARS}
 
     def flat(a):
-        return [float('nan') if (a is None or np.isnan(a[i, j])) else round(float(a[i, j]), 3) for i in range(nlat) for j in range(nlon)]
+        a = np.asarray(a)
+        return [float('nan') if np.isnan(a[i, j]) else round(float(a[i, j]), 3) for i in range(nlat) for j in range(nlon)]
 
     for ti, tt in enumerate(times):
         grids['hs'].append(flat(wav['VHM0'].values[ti]))
