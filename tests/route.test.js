@@ -163,3 +163,8 @@ test('verdict/trip: batas arus diisi tetapi data arus kosong -> titik & rute tid
   assert.ok(T.curMissing && T.downgraded);
   assert.ok(T.reasons.includes('data arus kosong padahal batas arus diisi'));
 });
+
+test('dataQuality: angin dari cadangan MET Norway -> catatan', () => {
+  const d = data([pt({ hx: 0.5, w: 10 })], { windBackup: true, windModels: ['MET Norway (cadangan)'] });
+  assert.ok(R.dataQuality(samples.slice(0, 1), d, SHIP, T0).some(x => x.code === 'windBackup' && x.level === 'info'));
+});

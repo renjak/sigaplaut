@@ -74,3 +74,42 @@ test('forecast: koordinat identik hanya diminta sekali, urutan titik tetap', asy
   assert.deepStrictEqual(r.body.points[1].cell, [-8.5, 110.0417]);
   assert.ok(urls.every(u => new URL(u).searchParams.get('latitude') === '-8.000,-8.500'));
 });
+
+test('forecast: model angin gagal -> cadangan MET Norway (nilai terbesar di antara jam per 6 jam)', async () => {
+  mockFetch(); const inner = global.fetch; const seen = [];
+  const iso = s => new Date(s * 1000).toISOString().replace('.000Z', 'Z');
+  global.fetch = async (u, o) => {
+    const url = String(u);
+    if (url.includes('://api.open-meteo.com')) return { ok: false, status: 429, text: async () => 'limit' };
+    if (url.includes('api.met.no')) {
+      seen.push(o && o.headers && o.headers['User-Agent']);
+      // jam 0: 10 m/s; jam 2 (lompat 2 jam): 5 m/s -> jam 1 = max(10,5) m/s
+      const ts = [[T[0], 10], [T[2], 5]].map(([s, v]) => ({ time: iso(s), data: { instant: { details: { wind_speed: v } } } }));
+      return { ok: true, status: 200, json: async () => ({ properties: { timeseries: ts } }) };
+    }
+    return inner(u, o);
+  };
+  const f = require('../api/forecast.js'); const r = res();
+  await f({ query: { lat: '-8', lon: '110' } }, r);
+  assert.strictEqual(r.code, 200);
+  assert.strictEqual(r.body.windOk, true);
+  assert.strictEqual(r.body.windBackup, true);
+  assert.deepStrictEqual(r.body.windModels, ['MET Norway (cadangan)']);
+  assert.deepStrictEqual(r.body.points[0].w, [19.44, 19.44, 9.72]);   // knot
+  assert.deepStrictEqual(r.body.points[0].g, [null, null, null]);
+  assert.ok(seen[0].startsWith('sigap-laut/') && !seen[0].includes('@'));
+});
+
+test('forecast: model angin & MET Norway gagal -> windOk false (aplikasi menurunkan status)', async () => {
+  mockFetch(); const inner = global.fetch;
+  global.fetch = async (u, o) => {
+    const url = String(u);
+    if (url.includes('://api.open-meteo.com') || url.includes('api.met.no')) return { ok: false, status: 503, text: async () => 'down' };
+    return inner(u, o);
+  };
+  const f = require('../api/forecast.js'); const r = res();
+  await f({ query: { lat: '-8', lon: '110' } }, r);
+  assert.strictEqual(r.body.windOk, false);
+  assert.strictEqual(r.body.windBackup, false);
+  assert.deepStrictEqual(r.body.points[0].w, [null, null, null]);
+});

@@ -182,7 +182,7 @@ footer a,.card a{color:var(--sea)}
  </div>
 </main>
 <footer>
- Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
+ Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Angin cadangan: <a href="https://api.met.no/">MET Norway</a> (CC BY 4.0). Kedalaman: ETOPO 2022, NOAA NCEI (domain publik), bukan untuk navigasi. Daftar pelabuhan: BMKG. Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
  Prototipe alat bantu perencanaan, bukan pengganti informasi resmi BMKG dan keputusan komandan. Pada prototipe ini koordinat dikirim ke Open-Meteo lewat server Vercel; versi operasional dijalankan di server internal agar rute tidak keluar.
 </footer>
 
@@ -194,8 +194,8 @@ const $ = id => document.getElementById(id);
 const COL = { g: '#16a05a', a: '#e2a100', r: '#d33f3f', x: '#9aa7b6' };
 const LBL = { g: 'AMAN', a: 'WASPADA', r: 'TIDAK DISARANKAN', x: 'TANPA DATA' };
 const SR = window.SigapRoute;
-const MAX_WP = 60;        // batas waypoint per rencana (sama dengan batas server /api/route-check)
-const MAX_SAMPLES = 80;   // batas titik prakiraan per permintaan (/api/forecast) ≈ 1.500 NM
+const MAX_WP = 100;       // batas waypoint per rencana (sama dengan batas server /api/route-check)
+const MAX_SAMPLES = 150;  // batas titik prakiraan per permintaan (/api/forecast): waypoint + titik bantu tiap 20 NM
 const { nm, buildSamples, keyOf } = SR;
 const fmt1 = v => (v == null || !Number.isFinite(v)) ? '–' : v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fmtN = v => (+v).toLocaleString('id-ID', { maximumFractionDigits: 2 });
@@ -332,7 +332,7 @@ async function fetchData(samples) {
   const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`, { cache: 'no-cache' });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'gagal');
-  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, at: j.fetchedAt };
+  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, windBackup: !!j.windBackup, at: j.fetchedAt };
  } catch (e) {
   const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&forecast_days=7&timeformat=unixtime&hourly=wave_height,wave_period,swell_wave_height,ocean_current_velocity`);
   if (!r.ok) throw new Error('Sumber data tidak dapat dihubungi.');
@@ -469,7 +469,7 @@ async function calc() {
  S.samples = buildSamples(S.wps);
  if (S.samples.length < 2) { showMsg('Minimal 2 titik rute.'); return; }
  if (S.wps.length > MAX_WP) { showMsg(`Terlalu banyak waypoint (${S.wps.length}); maksimal ${MAX_WP}. Bagi rute menjadi beberapa leg.`); return; }
- if (S.samples.length > MAX_SAMPLES) { showMsg(`Rute terlalu panjang: ${S.samples.length} titik prakiraan, maksimal ${MAX_SAMPLES} (±1.500 NM). Bagi menjadi beberapa leg.`); return; }
+ if (S.samples.length > MAX_SAMPLES) { showMsg(`Rute terlalu panjang: ${S.samples.length} titik prakiraan, maksimal ${MAX_SAMPLES} (waypoint + titik bantu tiap 20 NM). Bagi menjadi beberapa leg.`); return; }
  const btn = $('calc'); btn.disabled = true; btn.textContent = 'Mengambil prakiraan…';
  try {
   S.data = await fetchData(S.samples);

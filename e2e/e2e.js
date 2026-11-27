@@ -171,7 +171,7 @@ async function run(browser, sc, vp) {
     await page.waitForTimeout(300);
     tap = { before, after: await page.locator('#wps .wp').count() };
   } else {
-    for (let i = 0; i < 40; i++) { if (await page.locator('#addWp').isDisabled()) break; await page.click('#addWp'); }
+    for (let i = 0; i < 80; i++) { if (await page.locator('#addWp').isDisabled()) break; await page.click('#addWp'); }
     limit = { wps: await page.locator('#wps .wp').count(), disabled: await page.locator('#addWp').isDisabled(), count: await page.locator('#wpCount').textContent() };
   }
   await ctx.close();
@@ -196,13 +196,13 @@ async function run(browser, sc, vp) {
     ['briefing tidak menyebut "jendela aman" bila status bukan AMAN', r.status === 'AMAN' || !/Jendela aman terdekat/.test(r.brief), ''],
     ['status per titik terlihat tanpa geser tabel', ux.dotsVisible, ''],
     ['label WP di peta tidak menumpuk (≤ 12 permanen)', ux.labels <= 12, String(ux.labels)],
-    ['penghitung waypoint tampil', /^\d+\/60 waypoint · ±\d+ NM · \d+\/80 titik prakiraan$/.test(ux.count), ux.count],
+    ['penghitung waypoint tampil', /^\d+\/100 waypoint · ±\d+ NM · \d+\/150 titik prakiraan$/.test(ux.count), ux.count],
     ...(vp.isMobile ? [
       ['HP: semua tombol & isian ≥ 40 px', ux.small.length === 0, ux.small.slice(0, 6).join(', ')],
       ['HP: huruf kolom isian ≥ 16 px (tanpa zoom otomatis)', ux.tinyFont.length === 0, ux.tinyFont.join(', ')],
       ['HP: tap peta menambah satu waypoint', tap && tap.after === tap.before + 1, JSON.stringify(tap)]
     ] : [
-      ['batas 60 waypoint ditegakkan', limit && limit.wps === 60 && limit.disabled && limit.count.startsWith('60/60'), JSON.stringify(limit)]
+      ['batas 100 waypoint ditegakkan', limit && limit.wps === 100 && limit.disabled && limit.count.startsWith('100/100'), JSON.stringify(limit)]
     ]),
     ['briefing memuat kualitas data & pelabuhan', /Prakiraan pelabuhan BMKG/.test(r.brief) && (!sc.expect.sharedCell || !hasCells || /Kualitas data:/.test(r.brief)), ''],
     ['model angin gagal -> tidak pernah AMAN', !r.windFailed || r.status !== 'AMAN', r.status],
