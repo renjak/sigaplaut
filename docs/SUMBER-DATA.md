@@ -6,7 +6,7 @@ Status per 27 Nov 2026. Prinsip: nilai tertinggi antarmodel, data kosong ≠ ama
 |---|---|---|---|
 | BMKG – peringatan dini cuaca (CAP) | Peringatan aktif ±10 NM dari rute | `www.bmkg.go.id/alerts/nowcast` (publik) | Aktif (`api/bmkg-warnings.js`) |
 | BMKG – prakiraan pelabuhan | Tautan pelabuhan terdekat (664 pelabuhan) | Halaman publik `bmkg.go.id/cuaca/maritim/pelabuhan` | Aktif (`data/bmkg-ports.json`, `scripts/update-bmkg-ports.js`) |
-| BMKG – API maritim (InaWAVES/InaFLOWS, `maritim.bmkg.go.id/pusmar/api23`) | Gelombang, arus, pasut resmi | Diproteksi Cloudflare (dicek 27 Nov 2026: HTTP 403 `cf-mitigated: challenge`) | **Menunggu izin resmi.** Jangan diakali. Lihat draf permohonan di bawah |
+| BMKG – API maritim (InaWAVES/InaFLOWS, `maritim.bmkg.go.id/pusmar/api23`) | Gelombang, arus, pasut resmi | Diproteksi Cloudflare (dicek 27 Nov 2026: HTTP 403 `cf-mitigated: challenge`) | **Menunggu izin resmi.** Seluruh domain `maritim.bmkg.go.id` (termasuk PDF rute) menantang permintaan server (dicek ulang 27 Nov 2026). Aplikasi hanya menautkan situs ini untuk dibuka di browser pengguna. Jangan diakali. Lihat draf permohonan di bawah |
 | Open-Meteo Marine | Gelombang (ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM), swell, arus (SMOC, termasuk pasut) | API, CC BY 4.0, gratis non-komersial (±10.000 panggilan/hari; tiap titik dihitung) | Aktif |
 | Open-Meteo Weather | Angin & hembusan (ECMWF IFS, NOAA GFS, DWD ICON) | Idem | Aktif |
 | MET Norway Locationforecast | Angin cadangan bila Open-Meteo gagal (mis. kuota habis) | API, CC BY 4.0, User-Agent aplikasi | Aktif sebagai cadangan. Tanpa hembusan; setelah ±60 jam per 6 jam (diambil nilai terbesar) |

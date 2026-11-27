@@ -174,3 +174,25 @@ test('dataQuality: Stormglass pembanding & galat kuota tampil sebagai catatan', 
   const q = R.dataQuality(samples.slice(0, 1), d, SHIP, T0).find(x => x.code === 'stormglass');
   assert.ok(q && q.text.includes('3 dari 40') && q.text.includes('kuota habis'));
 });
+
+test('segments: jarak WGS84 & haluan per ruas, jumlah = jarak total sampel', () => {
+  const wps = [[-6, 106], [-6, 107], [-7, 107]];
+  const sg = R.segments(wps);
+  assert.strictEqual(sg.length, 2);
+  assert.ok(Math.abs(sg[0].bearing - 90) < 0.1 && Math.abs(sg[1].bearing - 180) < 1e-6);
+  const smp = R.buildSamples(wps);
+  assert.ok(Math.abs(sg[0].nm + sg[1].nm - smp[smp.length - 1].cum) < 1e-9);
+  assert.ok(Math.abs(sg[1].nm - 59.7) < 0.1, sg[1].nm);   // 1° lintang di ±6,5°S ≈ 59,7 NM (bukan 60)
+});
+
+test('hoursAt: kecepatan per ruas mengubah ETA hanya mulai ruas itu', () => {
+  const wps = [[-6, 106], [-6, 107], [-7, 107]];
+  const smp = R.buildSamples(wps), sg = R.segments(wps);
+  const flat = R.hoursAt(smp, 10), varied = R.hoursAt(smp, k => (k === 1 ? 5 : 10));
+  const iWp2 = smp.findIndex(p => p.wp === 1), last = smp.length - 1;
+  assert.ok(Math.abs(varied[iWp2] - flat[iWp2]) < 1e-9);                    // sampai WP2 sama
+  assert.ok(Math.abs(varied[last] - (sg[0].nm / 10 + sg[1].nm / 5)) < 1e-9); // ruas 2 pada 5 kn
+  const d = data(smp.map(() => pt({ hx: 0.5 })));
+  const T = R.trip(smp, d, SHIP, T0, k => (k === 1 ? 5 : 10), 0.5, []);
+  assert.ok(Math.abs(T.rows[last].eta - (T0 + varied[last] * 3600e3)) < 1);
+});

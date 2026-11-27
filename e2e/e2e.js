@@ -127,7 +127,7 @@ async function run(browser, sc, vp) {
       depthBad: document.querySelectorAll('#status .note.depth.bad').length,
       depthMarkers: [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => p.getAttribute('stroke') === '#0b2545' && ['#d33f3f', '#e2a100', '#3b2a1a'].includes(p.getAttribute('fill'))).length,
       ports: (document.querySelector('#status .note.port') || {}).textContent || '',
-      portLinks: [...document.querySelectorAll('#status .note.port a')].map(a => a.href),
+      portLinks: [...document.querySelectorAll('#status .note.port a')].map(a => a.href).filter(h => h.includes('/cuaca/maritim/pelabuhan/')),
       routePx: (() => { const bs = [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => ['#16a05a', '#e2a100', '#d33f3f', '#9aa7b6'].includes(p.getAttribute('stroke'))).map(p => p.getBoundingClientRect());
         if (!bs.length) return 0; return Math.max(Math.max(...bs.map(b => b.right)) - Math.min(...bs.map(b => b.left)), Math.max(...bs.map(b => b.bottom)) - Math.min(...bs.map(b => b.top))); })(),
       windFailed: /model angin gagal/.test(document.querySelector('#status').innerText),
@@ -154,14 +154,19 @@ async function run(browser, sc, vp) {
     const dots = [...document.querySelectorAll('#tbl tbody tr td:first-child .dot')];
     const dotsVisible = dots.length > 0 && dots.every(d => { const b = d.getBoundingClientRect(); return b.width > 0 && b.right <= window.innerWidth; });
     const labels = [...document.querySelectorAll('.leaflet-tooltip-pane .leaflet-tooltip')].length;
-    return { small, tinyFont, count: document.querySelector('#wpCount').textContent, dotsVisible, labels };
+    const rowsTxt = [...document.querySelectorAll('#tbl tbody tr')].map(tr => [...tr.cells].map(td => td.textContent));
+    const legsOk = rowsTxt.length > 1 && rowsTxt.slice(0, -1).every(r => /^\d{3}\.\d°$/.test(r[6]) && /^\d+,\d$/.test(r[7])) && rowsTxt[rowsTxt.length - 1][6] === '–';
+    const bmkgCorr = /±10 NM/.test(document.querySelector('#bmkgList').innerText);
+    const encOk = [...document.querySelectorAll('#bmkgList .enc')].every(x => /kapal tiba ±.* WIB · (BERLAKU saat kapal melintas|berakhir sebelum kapal tiba|belum berlaku saat kapal tiba)/.test(x.textContent));
+    const marLink = !!document.querySelector('#status a[href="https://maritim.bmkg.go.id/"]');
+    return { small, tinyFont, count: document.querySelector('#wpCount').textContent, dotsVisible, labels, legsOk, bmkgCorr, encOk, marLink };
   });
 
   const shot = path.join(OUT, `${sc.id}-${vp.id}.png`);
   await page.screenshot({ path: shot, fullPage: vp.id === 'hp' });
 
   // Interaksi setelah screenshot: tap peta (HP) dan batas 60 waypoint (desktop).
-  let tap = null, limit = null;
+  let tap = null, limit = null; const io = {};
   if (vp.hasTouch) {
     const before = await page.locator('#wps .wp').count();
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -171,7 +176,31 @@ async function run(browser, sc, vp) {
     await page.waitForTimeout(300);
     tap = { before, after: await page.locator('#wps .wp').count() };
   } else {
-    for (let i = 0; i < 80; i++) { if (await page.locator('#addWp').isDisabled()) break; await page.click('#addWp'); }
+    // Kecepatan per ruas: WP1 → 5 kn memperlambat semua ETA setelahnya.
+    const etaWp2 = async () => (await page.locator('#tbl tbody tr').nth(1).locator('td').nth(1).textContent());
+    const before = await etaWp2();
+    await page.fill('#wps input[data-i="0"][data-f="speed"]', '5');
+    await page.locator('#wps input[data-i="0"][data-f="speed"]').dispatchEvent('change');
+    await page.waitForTimeout(300);
+    io.speedChanged = before !== await etaWp2();
+    // Kecepatan tidak wajar ditolak tanpa mengubah nilai.
+    await page.fill('#wps input[data-i="1"][data-f="speed"]', '99');
+    await page.locator('#wps input[data-i="1"][data-f="speed"]').dispatchEvent('change');
+    io.badSpeedRejected = /2–45 knot/.test(await page.locator('#msg').textContent()) && (await page.inputValue('#wps input[data-i="1"][data-f="speed"]')) === '';
+    // Ekspor CSV.
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#expCsv')]);
+    io.exportCsv = fs.readFileSync(await dl.path(), 'utf8');
+    // Impor CSV valid (titik koma + koma desimal) lalu CSV dengan duplikat (harus ditolak, rute tetap).
+    const tmp = path.join(OUT, 'impor-uji.csv'), bad = path.join(OUT, 'impor-rusak.csv');
+    fs.writeFileSync(tmp, 'no;nama;lintang;bujur;kecepatan\n1;Sekupang;1,125;103,925;12\n2;Selat Durian;0,800;103,600;\n3;Pondok Dayung;-6,0958;106,8861;\n');
+    fs.writeFileSync(bad, 'lat,lon\n-6.1,106.9\n-6.1,106.9\n');
+    await page.setInputFiles('#impFile', tmp);
+    await page.waitForTimeout(300);
+    io.imported = { wps: await page.locator('#wps .wp').count(), name: await page.inputValue('#wps input[data-i="1"][data-f="name"]'), msg: await page.locator('#msg').textContent() };
+    await page.setInputFiles('#impFile', bad);
+    await page.waitForTimeout(300);
+    io.rejected = { wps: await page.locator('#wps .wp').count(), msg: await page.locator('#msg').textContent() };
+    for (let i = 0; i < 120; i++) { if (await page.locator('#addWp').isDisabled()) break; await page.click('#addWp'); }
     limit = { wps: await page.locator('#wps .wp').count(), disabled: await page.locator('#addWp').isDisabled(), count: await page.locator('#wpCount').textContent() };
   }
   await ctx.close();
@@ -196,12 +225,20 @@ async function run(browser, sc, vp) {
     ['briefing tidak menyebut "jendela aman" bila status bukan AMAN', r.status === 'AMAN' || !/Jendela aman terdekat/.test(r.brief), ''],
     ['status per titik terlihat tanpa geser tabel', ux.dotsVisible, ''],
     ['label WP di peta tidak menumpuk (≤ 12 permanen)', ux.labels <= 12, String(ux.labels)],
+    ['kolom haluan & jarak ruas terisi per WP', ux.legsOk, ''],
+    ['peringatan BMKG dinilai dengan koridor ±10 NM & jam tiba kapal', ux.bmkgCorr && ux.encOk, ''],
+    ['tautan BMKG Maritim di status', ux.marLink, ''],
     ['penghitung waypoint tampil', /^\d+\/100 waypoint · ±\d+ NM · \d+\/150 titik prakiraan$/.test(ux.count), ux.count],
     ...(vp.isMobile ? [
       ['HP: semua tombol & isian ≥ 40 px', ux.small.length === 0, ux.small.slice(0, 6).join(', ')],
       ['HP: huruf kolom isian ≥ 16 px (tanpa zoom otomatis)', ux.tinyFont.length === 0, ux.tinyFont.join(', ')],
       ['HP: tap peta menambah satu waypoint', tap && tap.after === tap.before + 1, JSON.stringify(tap)]
     ] : [
+      ['kecepatan per ruas mengubah ETA', io.speedChanged === true, ''],
+      ['kecepatan ruas tak wajar ditolak, nilai tidak diubah', io.badSpeedRejected === true, ''],
+      ['ekspor CSV berisi semua WP (6 desimal, haluan, ETA UTC)', !!io.exportCsv && io.exportCsv.startsWith('seq,name,lat,lon,speed_kn,leg_nm,bearing_deg_true,eta_utc\n1,,1.125000,103.925000,5,') && io.exportCsv.trim().split('\n').length === 31, (io.exportCsv || '').split('\n').slice(0, 2).join(' / ')],
+      ['impor CSV valid dimuat (3 WP, nama terbaca)', io.imported && io.imported.wps === 3 && io.imported.name === 'Selat Durian', JSON.stringify(io.imported)],
+      ['impor CSV rusak ditolak utuh, rute tidak berubah', io.rejected && io.rejected.wps === 3 && /ditolak/.test(io.rejected.msg) && /duplikat/.test(io.rejected.msg), JSON.stringify(io.rejected)],
       ['batas 100 waypoint ditegakkan', limit && limit.wps === 100 && limit.disabled && limit.count.startsWith('100/100'), JSON.stringify(limit)]
     ]),
     ['briefing memuat kualitas data & pelabuhan', /Prakiraan pelabuhan BMKG/.test(r.brief) && (!sc.expect.sharedCell || !hasCells || /Kualitas data:/.test(r.brief)), ''],
