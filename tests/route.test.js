@@ -196,3 +196,12 @@ test('hoursAt: kecepatan per ruas mengubah ETA hanya mulai ruas itu', () => {
   const T = R.trip(smp, d, SHIP, T0, k => (k === 1 ? 5 : 10), 0.5, []);
   assert.ok(Math.abs(T.rows[last].eta - (T0 + varied[last] * 3600e3)) < 1);
 });
+
+test('dataQuality: Copernicus digabung & grid sintetis diperingatkan', () => {
+  const real = data([pt({ hx: 0.5 })], { copernicus: { points: 30, of: 40, issued: '2026-11-27T00:00:00Z', synthetic: false } });
+  const q1 = R.dataQuality(samples.slice(0, 1), real, SHIP, T0).find(x => x.code === 'copernicus');
+  assert.ok(q1 && q1.text.includes('30 dari 40') && /InaWAVES/.test(q1.text));
+  const syn = data([pt({ hx: 0.5 })], { copernicus: { points: 10, of: 10, issued: 'x', synthetic: true } });
+  const q2 = R.dataQuality(samples.slice(0, 1), syn, SHIP, T0).find(x => x.code === 'copernicus');
+  assert.ok(q2 && /TIRUAN/.test(q2.text));
+});

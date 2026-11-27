@@ -1,6 +1,8 @@
 // Prakiraan per titik rute dari data terbuka (via Open-Meteo, CC BY 4.0):
 // gelombang: ECMWF WAM, NOAA GFS-Wave, Meteo-France MFWAM (+ best match untuk swell/periode/arus)
 // angin: ECMWF IFS, NOAA GFS, DWD ICON. Nilai yang dipakai aplikasi: maksimum antarmodel (konservatif).
+const fs = require('node:fs'), path = require('node:path'), zlib = require('node:zlib');
+const CMGRID = require('../lib/cmgrid.js');
 const MARINE = 'https://marine-api.open-meteo.com/v1/marine';
 const WX = 'https://api.open-meteo.com/v1/forecast';
 const WAVE = { ecmwf_wam025: 'ECMWF WAM', ncep_gfswave025: 'NOAA GFS-Wave', meteofrance_wave: 'Météo-France MFWAM' };
@@ -86,6 +88,23 @@ async function getJSON(url) {
 const rnd = v => (v == null || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100;
 const rnd4 = v => Math.round(v * 1e4) / 1e4;
 
+// Grid prakiraan resmi Copernicus Marine (gelombang & arus+pasut), bila sudah di-ingest oleh worker.
+// Dibaca dari berkas lokal di server: tidak ada panggilan ke luar, koordinat rute tidak dikirim.
+const CM_CACHE = new Map();   // per direktori; TTL 10 menit agar grid baru hasil ingest terpakai
+function copernicusGrid() {
+  const dir = process.env.CMGRID_DIR || path.join(__dirname, '..', 'data');
+  const hit = CM_CACHE.get(dir);
+  if (hit && Date.now() - hit.at < 600e3) return hit.g;
+  let g = null;
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'cmgrid.json'), 'utf8'));
+    const buf = new Float32Array(new Uint8Array(zlib.gunzipSync(fs.readFileSync(path.join(dir, 'cmgrid.bin.gz')))).buffer);
+    g = CMGRID.load(meta, buf);
+  } catch (e) { g = null; }   // belum ada grid = fitur mati, bukan galat
+  CM_CACHE.set(dir, { g, at: Date.now() });
+  return g;
+}
+
 module.exports = async (req, res) => {
   try {
     const lat = String(req.query.lat || '').split(',').filter(Boolean).map(Number);
@@ -118,6 +137,8 @@ module.exports = async (req, res) => {
     const met = wind.status === 'fulfilled' ? null : await metWind(uniq.map(k => k.split(',').map(Number)), t);
     const metOk = !!met && met.some(a => a && a.some(v => v != null));
     const sg = await stormglass(uniq.map(k => k.split(',').map(Number)), t);
+    const cm = copernicusGrid();
+    let cmUsed = 0;
     if (base.status === 'fulfilled') usedWave.add('Open-Meteo (best match)');
 
     const uniqPoints = ref.map((p, i) => {
@@ -135,6 +156,8 @@ module.exports = async (req, res) => {
       const o = { hx: [], hn: [], sw: [], tp: [], cur: [], w: [], g: [] };
       const mw = met && met[i];
       const sgp = sg && sg.res[i];
+      const [plat, plon] = uniq[i].split(',').map(Number);
+      let cmHit = false;
       const wm = new Set();
       if (base.status === 'fulfilled' && (B.wave_height || []).some(v => v != null && v > 0.01)) wm.add('Open-Meteo (best match)');
       t.forEach((time, ti) => {
@@ -147,6 +170,8 @@ module.exports = async (req, res) => {
         });
         const sv = sgp && sgp[ti];
         if (sv && sv.hs != null && sv.hs > 0.01) { waves.push(sv.hs); usedWave.add('Stormglass'); }   // tidak dihitung di wm (hanya sebagian titik)
+        const cmhs = cm ? cm.at('hs', plat, plon, time * 1000) : null;
+        if (cmhs != null && cmhs > 0.01) { waves.push(cmhs); usedWave.add('Copernicus Marine'); wm.add('Copernicus Marine'); cmHit = true; }
         let ws = null, gs = null;
         Object.keys(WIND).forEach(m => {
           const v = kw != null && W['wind_speed_10m_' + m] ? W['wind_speed_10m_' + m][kw] : null;
@@ -158,8 +183,11 @@ module.exports = async (req, res) => {
         o.hn.push(waves.length ? rnd(Math.min(...waves)) : null);
         o.sw.push(kb != null && B.swell_wave_height ? rnd(B.swell_wave_height[kb]) : null);
         o.tp.push(kb != null && B.wave_period ? rnd(B.wave_period[kb]) : null);
-        const c0 = kb != null && B.ocean_current_velocity && B.ocean_current_velocity[kb] != null ? B.ocean_current_velocity[kb] * ck : null;
-        o.cur.push(rnd(sv && sv.cur != null ? Math.max(c0 ?? 0, sv.cur) : c0));
+        let c0 = kb != null && B.ocean_current_velocity && B.ocean_current_velocity[kb] != null ? B.ocean_current_velocity[kb] * ck : null;
+        if (sv && sv.cur != null) c0 = Math.max(c0 ?? 0, sv.cur);
+        const cmcur = cm ? cm.at('cur_spd', plat, plon, time * 1000) : null;   // arus total Copernicus (termasuk pasut): hanya menaikkan
+        if (cmcur != null) { c0 = Math.max(c0 ?? 0, cmcur); cmHit = true; }
+        o.cur.push(rnd(c0));
         if (ws == null && mw && mw[ti] != null) { ws = mw[ti]; usedWind.add(MET_LABEL); }   // cadangan: tanpa data hembusan
         if (sv && sv.w != null) { ws = Math.max(ws ?? 0, sv.w); usedWind.add('Stormglass'); }   // pembanding: hanya menaikkan
         if (sv && sv.g != null) gs = Math.max(gs ?? 0, sv.g);
@@ -170,6 +198,7 @@ module.exports = async (req, res) => {
       const c = ref[i];
       o.cell = Number.isFinite(c.latitude) && Number.isFinite(c.longitude) ? [rnd4(c.latitude), rnd4(c.longitude)] : null;
       o.wm = [...wm];
+      if (cmHit) cmUsed++;
       return o;
     });
     const points = idx.map(k => uniqPoints[k]);
@@ -181,6 +210,7 @@ module.exports = async (req, res) => {
       windOk: wind.status === 'fulfilled' || metOk,
       windBackup: wind.status !== 'fulfilled' && metOk,
       stormglass: sg ? { points: sg.used, requested: sg.requested, of: uniq.length, error: sg.error } : null,
+      copernicus: cm ? { points: cmUsed, of: uniq.length, issued: cm.meta.issued, synthetic: !!cm.meta.synthetic } : null,
       fetchedAt: Date.now(), requested: lat.length, fetched: uniq.length, t, points
     });
   } catch (e) {

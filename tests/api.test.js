@@ -147,3 +147,55 @@ test('forecast: Stormglass (opsional) hanya aktif dengan kunci, tersebar rata, h
   assert.deepStrictEqual(p0.cur, [1, 2, 0.19]);         // arus: maksimum, tidak menurunkan 1 & 2 knot
   assert.ok(!p0.wm.includes('Stormglass'));
 });
+
+const fs_ = require('node:fs'), os_ = require('node:os'), path_ = require('node:path'), zlib_ = require('node:zlib');
+function writeCmgrid(dir, times, hs, cur, synthetic) {
+  const meta = { source: 'Copernicus Marine Service', datasets: { waves: 'wav', currents: 'cur' }, issued: '2026-11-27T00:00:00Z', synthetic: !!synthetic,
+    bbox: { lat0: -8, lon0: 110, res: 1 / 12, nlat: 1, nlon: 1 }, times, vars: ['hs', 'cur_spd'], units: {} };
+  const buf = Float32Array.from(hs.concat(cur));   // 1 sel: [hs t0..], [cur t0..]
+  fs_.mkdirSync(dir, { recursive: true });
+  fs_.writeFileSync(path_.join(dir, 'cmgrid.json'), JSON.stringify(meta));
+  fs_.writeFileSync(path_.join(dir, 'cmgrid.bin.gz'), zlib_.gzipSync(Buffer.from(buf.buffer)));
+}
+
+test('forecast: grid Copernicus menaikkan gelombang & arus (hanya menaikkan), provenance dilaporkan', async () => {
+  mockFetch();
+  const dir = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'cm-'));
+  // Open-Meteo (mock) di titik ini: hx = [1.5, 2.2, 3], cur = [1, 2, null]. Copernicus hs besar di t0, kecil di t2.
+  writeCmgrid(dir, T, [5, 1, 0.5], [3, 0.1, 0.2], false);
+  process.env.CMGRID_DIR = dir;
+  const f = require('../api/forecast.js'); const r = res();
+  await f({ query: { lat: '-8', lon: '110' } }, r);
+  delete process.env.CMGRID_DIR;
+  assert.strictEqual(r.code, 200);
+  const p = r.body.points[0];
+  assert.deepStrictEqual(p.hx, [5, 2.2, 3]);        // t0 dinaikkan ke 5; t1,t2 tidak turun
+  assert.deepStrictEqual(p.cur, [3, 2, 0.2]);        // arus: maksimum, termasuk t2 yang tadinya null
+  assert.ok(r.body.waveModels.includes('Copernicus Marine'));
+  assert.deepStrictEqual(r.body.copernicus, { points: 1, of: 1, issued: '2026-11-27T00:00:00Z', synthetic: false });
+  assert.ok(p.wm.includes('Copernicus Marine'));
+  fs_.rmSync(dir, { recursive: true, force: true });
+});
+
+test('forecast: tanpa berkas cmgrid, fitur Copernicus mati (null), bukan galat', async () => {
+  mockFetch();
+  process.env.CMGRID_DIR = path_.join(os_.tmpdir(), 'tidak-ada-' + Date.now());
+  const f = require('../api/forecast.js'); const r = res();
+  await f({ query: { lat: '-8', lon: '110' } }, r);
+  delete process.env.CMGRID_DIR;
+  assert.strictEqual(r.code, 200);
+  assert.strictEqual(r.body.copernicus, null);
+  assert.ok(!r.body.waveModels.includes('Copernicus Marine'));
+});
+
+test('forecast: grid Copernicus sintetis ditandai agar aplikasi memperingatkan', async () => {
+  mockFetch();
+  const dir = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'cm-'));
+  writeCmgrid(dir, T, [5, 5, 5], [1, 1, 1], true);
+  process.env.CMGRID_DIR = dir;
+  const f = require('../api/forecast.js'); const r = res();
+  await f({ query: { lat: '-8', lon: '110' } }, r);
+  delete process.env.CMGRID_DIR;
+  assert.strictEqual(r.body.copernicus.synthetic, true);
+  fs_.rmSync(dir, { recursive: true, force: true });
+});

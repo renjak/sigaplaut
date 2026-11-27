@@ -208,7 +208,7 @@ footer a,.card a{color:var(--sea)}
  </div>
 </main>
 <footer>
- Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Angin cadangan: <a href="https://api.met.no/">MET Norway</a> (CC BY 4.0). Kedalaman: ETOPO 2022, NOAA NCEI (domain publik), bukan untuk navigasi. Daftar pelabuhan: BMKG. Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
+ Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Gelombang & arus+pasut resmi: <a href="https://marine.copernicus.eu/">Copernicus Marine Service</a> (bila di-ingest; wajib atribusi). Angin cadangan: <a href="https://api.met.no/">MET Norway</a> (CC BY 4.0). Kedalaman: ETOPO 2022, NOAA NCEI (domain publik), bukan untuk navigasi. Daftar pelabuhan: BMKG. Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
  Prototipe alat bantu perencanaan, bukan pengganti informasi resmi BMKG dan keputusan komandan. Pada prototipe ini koordinat dikirim ke Open-Meteo lewat server Vercel; versi operasional dijalankan di server internal agar rute tidak keluar.
 </footer>
 
@@ -379,7 +379,7 @@ async function fetchData(samples) {
   const r = await fetch(`/api/forecast?lat=${lat}&lon=${lon}&days=7`, { cache: 'no-cache' });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'gagal');
-  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, windBackup: !!j.windBackup, stormglass: j.stormglass || null, at: j.fetchedAt };
+  return { pts: normalize(j), source: j.source, waveModels: j.waveModels || [], windModels: j.windModels || [], windOk: j.windOk !== false, windBackup: !!j.windBackup, stormglass: j.stormglass || null, copernicus: j.copernicus || null, at: j.fetchedAt };
  } catch (e) {
   const r = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&forecast_days=7&timeformat=unixtime&hourly=wave_height,wave_period,swell_wave_height,ocean_current_velocity`);
   if (!r.ok) throw new Error('Sumber data tidak dapat dihubungi.');
