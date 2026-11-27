@@ -2,3 +2,4 @@ tests
 *.md
 e2e
 scripts
+docs
