@@ -5,3 +5,4 @@ e2e/screenshots
 data/cmgrid.bin.gz
 data/cmgrid.json
 .cmenv
+*.keystore

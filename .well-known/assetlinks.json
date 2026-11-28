@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.sigaplaut.twa",
+      "sha256_cert_fingerprints": [
+        "3E:D6:BC:86:EF:35:2A:7B:AC:3E:59:79:76:89:25:F8:57:17:0F:AA:03:67:98:9B:1C:29:CF:52:E1:64:F8:B7"
+      ]
+    }
+  }
+]
