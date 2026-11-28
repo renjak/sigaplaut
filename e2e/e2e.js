@@ -37,6 +37,12 @@ function dataAccuracy(json, wps, depart, speed, margin, ship, table) {
 }
 
 const BASE = process.env.BASE_URL || 'https://sigap-laut.vercel.app';
+// Untuk menguji preview yang dilindungi Vercel Authentication: set VERCEL_AUTOMATION_BYPASS_SECRET
+// (dari "Protection Bypass for Automation"). Dikirim sebagai query pada navigasi pertama (bukan header),
+// agar Vercel menyetel cookie bypass dan header kustom tidak bocor ke permintaan lintas-asal (mis. font → CORS).
+const BYPASS_Q = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  ? (BASE.includes('?') ? '&' : '?') + 'x-vercel-protection-bypass=' + encodeURIComponent(process.env.VERCEL_AUTOMATION_BYPASS_SECRET) + '&x-vercel-set-bypass-cookie=true'
+  : '';
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -79,7 +85,7 @@ async function run(browser, sc, vp) {
     if (u.includes('/api/forecast') && r.status() === 200) r.json().then(j => { forecastJson = j; }).catch(() => {});
   });
 
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.goto(BASE + BYPASS_Q, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.leaflet-container .leaflet-tile-loaded', { timeout: 30000 });
 
   // data kapal
@@ -255,7 +261,8 @@ async function run(browser, sc, vp) {
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  // Lewati proxy HTTPS bila lingkungan menetapkannya (mis. sandbox cloud); --no-sandbox untuk CI/root.
+  const browser = await chromium.launch({ args: ['--no-sandbox'], ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {}) });
   let failed = 0;
   const results = [];
   try {
