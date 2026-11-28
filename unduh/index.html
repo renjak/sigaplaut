@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Unduh SIGAP LAUT</title>
+<meta name="description" content="Unduh & pasang aplikasi SIGAP LAUT — Android (APK) atau iPhone (Tambah ke Layar Utama). Satu halaman untuk semua perangkat.">
+<meta name="theme-color" content="#145DA0">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#071B35;--ocean:#145DA0;--sea:#2589D8;--sky:#69C5F0;--ice:#EAF5FC;--bg:#F2F5F8;--card:#fff;--ink:#0E2742;--muted:#5E7085;--line:#E4EAF1;--line2:#CFDDEB;--g:#16a05a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+.wrap{max-width:460px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 16px 40px;display:grid;gap:14px}
+header{text-align:center;padding:14px 0 4px}
+.appicon{width:92px;height:92px;border-radius:22px;box-shadow:0 8px 28px rgba(20,93,160,.28);display:block;margin:0 auto 12px}
+header h1{margin:0;font-size:26px;font-weight:700;letter-spacing:.14em;color:var(--navy)}
+header .sub{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(7,27,53,.04),0 2px 10px rgba(7,27,53,.05)}
+.card h2{margin:0 0 12px;font-size:16px;color:var(--navy)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border-radius:12px;font:inherit;font-weight:700;font-size:16px;text-decoration:none;cursor:pointer;border:1px solid var(--line2);background:#fff;color:var(--ocean);margin:6px 0}
+.btn.primary{background:var(--sea);border-color:var(--sea);color:#fff;box-shadow:0 4px 14px rgba(37,137,216,.3)}
+.btn.primary:active{transform:translateY(1px)}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.or{text-align:center;color:var(--muted);font-size:12px;margin:14px 0 6px;letter-spacing:.08em}
+ol{margin:6px 0 14px;padding-left:20px;font-size:14.5px}
+ol li{margin:5px 0}
+a{color:var(--ocean)}
+.qr{text-align:center}
+.qrlabel{margin:0 0 10px;font-size:13px;color:var(--muted);font-weight:600}
+.qrbox{width:200px;height:200px;margin:0 auto;padding:10px;background:#fff;border:1px solid var(--line2);border-radius:14px}
+.qrbox svg{width:100%;height:100%;display:block}
+.weblink{display:inline-block;margin-top:12px;font-size:14px;font-weight:600}
+details summary{cursor:pointer;font-weight:600;color:var(--navy);font-size:14px}
+details ul{margin:10px 0 4px;padding-left:18px;font-size:14px}
+.badge{display:inline-block;font-size:11px;font-weight:700;color:#14683f;background:#e7f6ee;border:1px solid #bfe6cf;border-radius:7px;padding:2px 8px;vertical-align:middle;margin-left:6px}
+footer{text-align:center;color:var(--muted);font-size:11.5px;line-height:1.6;padding:0 6px}
+@media(prefers-color-scheme:dark){/* keep light: this is a simple landing page */}
+</style>
+</head>
+<body>
+<main class="wrap">
+ <header>
+  <img class="appicon" src="/icons/icon-512.png" alt="Ikon SIGAP LAUT" width="92" height="92">
+  <h1>SIGAP LAUT</h1>
+  <p class="sub">Intelijen pelayaran &amp; peringatan dini · pasang gratis</p>
+ </header>
+
+ <section class="card" id="android" hidden>
+  <h2>📱 Pasang di Android <span class="badge">disarankan</span></h2>
+  <a class="btn primary" href="/download/sigap-laut.apk" download="SIGAP-LAUT.apk">⬇️ Unduh APK (v1.0.0 · 1,7 MB)</a>
+  <p class="hint">Setelah terunduh, buka filenya → bila diminta, izinkan <b>"Instal aplikasi tak dikenal"</b> untuk browser/Files Anda → ketuk <b>Instal</b>. Aplikasi membuka layar penuh seperti app biasa. Android 7+.</p>
+  <p class="or">— ATAU —</p>
+  <button class="btn" id="pwaBtn" type="button">Pasang langsung dari browser</button>
+  <p class="hint">Tanpa file: Chrome → menu ⋮ → <b>"Tambahkan ke layar utama"</b>.</p>
+ </section>
+
+ <section class="card" id="ios" hidden>
+  <h2>🍎 Pasang di iPhone / iPad</h2>
+  <p style="margin:0 0 6px;font-size:14.5px">iOS tidak mendukung APK — pasang sebagai aplikasi lewat <b>Safari</b> (gratis, tanpa App Store):</p>
+  <ol>
+   <li>Buka <b>sigap-laut.vercel.app</b> di <b>Safari</b>.</li>
+   <li>Ketuk tombol <b>Bagikan</b> <span aria-hidden="true">⬆️</span>.</li>
+   <li>Gulir &amp; pilih <b>Tambah ke Layar Utama</b>.</li>
+  </ol>
+  <a class="btn primary" href="https://sigap-laut.vercel.app">Buka di Safari</a>
+ </section>
+
+ <section class="card" id="desktop" hidden>
+  <h2>💻 Di komputer</h2>
+  <a class="btn primary" href="https://sigap-laut.vercel.app">Buka aplikasi web</a>
+  <p class="hint">Untuk memasang di HP, <b>scan QR di bawah</b> pakai kamera ponsel.</p>
+ </section>
+
+ <section class="card qr">
+  <p class="qrlabel">📷 Scan untuk buka di HP</p>
+  <div class="qrbox"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31 31" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h31v31H0z"/><path stroke="#071B35" d="M1 1.5h7m4 0h2m2 0h2m1 0h3m1 0h7M1 2.5h1m5 0h1m2 0h1m2 0h1m4 0h2m3 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m2 0h1m2 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h4m5 0h1m2 0h1m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h2m3 0h3m2 0h3m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m4 0h3m4 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h3m2 0h1m1 0h1m4 0h1M1 9.5h1m1 0h5m4 0h1m2 0h1m2 0h1m4 0h5M1 10.5h1m4 0h1m4 0h2m4 0h5m1 0h3m3 0h1M3 11.5h1m3 0h1m1 0h2m1 0h1m3 0h2m4 0h1m1 0h2M3 12.5h1m4 0h1m3 0h1m2 0h3m1 0h4m2 0h2m1 0h1M2 13.5h1m4 0h1m2 0h2m4 0h4m1 0h2m3 0h2M4 14.5h1m1 0h1m2 0h1m2 0h4m1 0h9m3 0h1M2 15.5h3m2 0h1m6 0h3m1 0h1m4 0h2m1 0h2M4 16.5h1m1 0h1m3 0h5m1 0h2m1 0h3m2 0h2m2 0h1M1 17.5h1m2 0h1m2 0h3m1 0h2m2 0h2m1 0h1m1 0h1m5 0h2M1 18.5h1m1 0h1m2 0h1m1 0h1m4 0h1m3 0h1m1 0h2m1 0h4m1 0h1m1 0h1M1 19.5h1m1 0h2m1 0h3m1 0h1m1 0h2m2 0h1m2 0h1m3 0h3m1 0h1M1 20.5h1m2 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1m3 0h2m5 0h1M1 21.5h1m5 0h1m4 0h1m5 0h1m2 0h5m1 0h3M9 22.5h1m1 0h1m2 0h2m1 0h1m2 0h2m3 0h5M1 23.5h7m3 0h7m1 0h3m1 0h1m1 0h3M1 24.5h1m5 0h1m1 0h2m2 0h2m1 0h2m1 0h3m3 0h1m3 0h1M1 25.5h1m1 0h3m1 0h1m1 0h1m5 0h4m2 0h5m1 0h2M1 26.5h1m1 0h3m1 0h1m1 0h1m2 0h3m2 0h1m2 0h1m5 0h4M1 27.5h1m1 0h3m1 0h1m1 0h1m1 0h4m1 0h2m1 0h2m1 0h7M1 28.5h1m5 0h1m2 0h1m2 0h2m2 0h1m1 0h4m1 0h1m1 0h1m1 0h1M1 29.5h7m1 0h1m1 0h1m1 0h1m1 0h1m2 0h3m4 0h3"/></svg></div>
+  <a class="weblink" href="https://sigap-laut.vercel.app">atau buka aplikasi web langsung →</a>
+ </section>
+
+ <section class="card">
+  <details>
+   <summary>Semua opsi &amp; info</summary>
+   <ul>
+    <li><a href="/download/sigap-laut.apk" download="SIGAP-LAUT.apk">APK Android</a> (v1.0.0, Android 7+)</li>
+    <li><a href="https://sigap-laut.vercel.app">Aplikasi web / PWA</a> (semua perangkat)</li>
+   </ul>
+   <p class="hint">APK ini aplikasi resmi yang membungkus situs produksi (TWA) &amp; ditandatangani — aman dipasang. Butuh internet untuk peta &amp; prakiraan; sebagian tersimpan luring. iPhone: gunakan opsi PWA.</p>
+  </details>
+ </section>
+
+ <footer>Alat bantu perencanaan keselamatan pelayaran — bukan pengganti informasi resmi BMKG, peta laut Pushidrosal, maupun keputusan komandan.</footer>
+</main>
+<script>
+(function(){
+ var ua=navigator.userAgent||navigator.vendor||'';
+ var isAndroid=/Android/i.test(ua);
+ var isIOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ var id=isAndroid?'android':isIOS?'ios':'desktop';
+ var el=document.getElementById(id); if(el) el.hidden=false;
+ var deferred=null;
+ window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;});
+ var b=document.getElementById('pwaBtn');
+ if(b) b.addEventListener('click',function(){ if(deferred){deferred.prompt();deferred=null;} else { location.href='https://sigap-laut.vercel.app'; } });
+})();
+</script>
+</body>
+</html>
