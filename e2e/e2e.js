@@ -127,6 +127,8 @@ async function run(browser, sc, vp) {
   await step('intel');
   await page.waitForSelector('#status .pill', { timeout: 60000 });
   await page.waitForFunction(() => !/Mengambil/.test(document.querySelector('#bmkgList').textContent), null, { timeout: 60000 });
+  // Pemeriksaan kedalaman (/api/route-check) async; tunggu selesai (cold start bisa lambat) sebelum membaca status.
+  await page.waitForFunction(() => !/kedangkalan sedang berjalan/.test(document.querySelector('#status').innerText || ''), null, { timeout: 60000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
 
   const r = await page.evaluate(() => {
