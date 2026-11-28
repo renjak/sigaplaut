@@ -202,7 +202,7 @@ async function run(browser, sc, vp) {
     fs.writeFileSync(bad, 'lat,lon\n-6.1,106.9\n-6.1,106.9\n');
     await page.setInputFiles('#impFile', tmp);
     await page.waitForTimeout(300);
-    io.imported = { wps: await page.locator('#wps .wp').count(), name: await page.inputValue('#wps input[data-i="1"][data-f="name"]'), msg: await page.locator('#msg').textContent() };
+    io.imported = { wps: await page.locator('#wps .wp').count(), lat2: await page.inputValue('#wps input[data-i="1"][data-k="0"]'), msg: await page.locator('#msg').textContent() };
     await page.setInputFiles('#impFile', bad);
     await page.waitForTimeout(300);
     io.rejected = { wps: await page.locator('#wps .wp').count(), msg: await page.locator('#msg').textContent() };
@@ -243,7 +243,7 @@ async function run(browser, sc, vp) {
       ['kecepatan per ruas mengubah ETA', io.speedChanged === true, ''],
       ['kecepatan ruas tak wajar ditolak, nilai tidak diubah', io.badSpeedRejected === true, ''],
       ['ekspor CSV berisi semua WP (6 desimal, haluan, ETA UTC)', !!io.exportCsv && io.exportCsv.startsWith('seq,name,lat,lon,speed_kn,leg_nm,bearing_deg_true,eta_utc\n1,,1.125000,103.925000,5,') && io.exportCsv.trim().split('\n').length === 31, (io.exportCsv || '').split('\n').slice(0, 2).join(' / ')],
-      ['impor CSV valid dimuat (3 WP, nama terbaca)', io.imported && io.imported.wps === 3 && io.imported.name === 'Selat Durian', JSON.stringify(io.imported)],
+      ['impor CSV valid dimuat (3 WP, koordinat terbaca)', io.imported && io.imported.wps === 3 && /48[.,]00.?N/.test(io.imported.lat2), JSON.stringify(io.imported)],
       ['impor CSV rusak ditolak utuh, rute tidak berubah', io.rejected && io.rejected.wps === 3 && /ditolak/.test(io.rejected.msg) && /duplikat/.test(io.rejected.msg), JSON.stringify(io.rejected)],
       ['batas 100 waypoint ditegakkan', limit && limit.wps === 100 && limit.disabled && limit.count.startsWith('100/100'), JSON.stringify(limit)]
     ]),

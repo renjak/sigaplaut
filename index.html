@@ -63,7 +63,7 @@ button:disabled{opacity:.45;cursor:default;box-shadow:none}
 .err{color:#b4322c;font-size:13px;min-height:0;margin:0}
 .wps{display:grid;gap:8px;margin:10px 0}
 .wp{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
-.wph{display:grid;grid-template-columns:40px minmax(0,1fr) 44px 44px 44px;gap:6px;align-items:center}
+.wph{display:grid;grid-template-columns:1fr 44px 44px 44px;gap:6px;align-items:center}
 .wpc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 72px;gap:6px}
 .wp b{font-size:12px;color:var(--sea);text-align:center;font-weight:700;letter-spacing:.03em}
 .wp input{font-variant-numeric:tabular-nums}
@@ -525,7 +525,6 @@ function renderWps() {
  $('wps').innerHTML = S.wps.map((w, i) => `
   <div class="wp" data-row="${i}">
    <div class="wph"><b>WP${i + 1}</b>
-    <input aria-label="Nama WP${i + 1}" data-i="${i}" data-f="name" maxlength="40" placeholder="Nama" value="${esc(S.meta[i].name || '')}">
     <button type="button" class="mv" aria-label="Naikkan WP${i + 1}" data-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
     <button type="button" class="mv" aria-label="Turunkan WP${i + 1}" data-down="${i}" ${i === S.wps.length - 1 ? 'disabled' : ''}>↓</button>
     <button type="button" class="del" aria-label="Hapus WP${i + 1}" data-del="${i}">✕</button></div>
@@ -544,7 +543,6 @@ function renderWps() {
 }
 $('wps').addEventListener('change', e => {
  const t = e.target, i = +t.dataset.i; if (t.dataset.i == null) return;
- if (t.dataset.f === 'name') { S.meta[i].name = t.value.trim().slice(0, 40); save(); compute(); return; }
  if (t.dataset.f === 'speed') {
   const raw = t.value.trim(), v = raw ? parseFloat(raw.replace(',', '.')) : null;
   if (raw && !(v >= 2 && v <= 45)) { showMsg(`Kecepatan ruas WP${i + 1} harus 2–45 knot (tertulis "${raw}"). Tidak diubah.`); renderWps(); return; }
