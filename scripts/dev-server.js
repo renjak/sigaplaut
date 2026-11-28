@@ -8,7 +8,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
-const PUBLIC = /^\/(index\.html|lib\/[\w.-]+\.js|data\/[\w.-]+\.json)$/;
+const PUBLIC = /^\/(index\.html|manifest\.json|sw\.js|lib\/[\w.-]+\.js|data\/[\w.-]+\.json|icons\/[\w.-]+\.png)$/;
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');

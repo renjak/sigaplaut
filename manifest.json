@@ -1,0 +1,18 @@
+{
+  "name": "SIGAP LAUT — Intelijen Pelayaran",
+  "short_name": "SIGAP LAUT",
+  "description": "Perencana rute pelayaran, prakiraan gelombang/angin/arus sepanjang rute, pemeriksaan kedangkalan, dan peringatan dini BMKG.",
+  "lang": "id",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071B35",
+  "theme_color": "#145DA0",
+  "categories": ["navigation", "weather", "utilities"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
