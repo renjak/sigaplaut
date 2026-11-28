@@ -47,7 +47,7 @@ main{display:block;max-width:960px;margin:0 auto}
 .step.locked{opacity:.45;cursor:not-allowed}
 .step:focus-visible{outline:2px solid var(--sea);outline-offset:1px}
 main[data-stage] [data-st]{display:none}
-main[data-stage="vessel"] [data-st~="vessel"],main[data-stage="route"] [data-st~="route"],main[data-stage="calc"] [data-st~="calc"],main[data-stage="intel"] [data-st~="intel"],main[data-stage="summary"] [data-st~="summary"]{display:block}
+main[data-stage="vessel"] [data-st~="vessel"],main[data-stage="route"] [data-st~="route"],main[data-stage="calc"] [data-st~="calc"],main[data-stage="intel"] [data-st~="intel"],main[data-stage="summary"] [data-st~="summary"]{display:block;animation:stagein .28s ease both}
 main[data-stage] #map{display:none}
 main[data-stage="route"] #map,main[data-stage="intel"] #map{display:block}
 .actionbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;gap:10px;align-items:center;padding:10px max(4vw,16px);padding-bottom:calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line2)}
@@ -93,6 +93,14 @@ main[data-stage="route"] #map,main[data-stage="intel"] #map{display:block}
 .report .vpill.a{color:#3a2b00}.report .vpill.x{color:#223040}
 .routelib{display:grid;gap:10px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:var(--ice);margin-bottom:8px}
 .routelib hr{border:0;border-top:1px solid var(--line);margin:0}
+/* ===== Fase 4: poles premium — transisi, skeleton, pesan sukses ===== */
+.msg.ok{background:var(--g-tint);color:#14683f;border-color:#bfe6cf}
+@keyframes stagein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.skel{display:grid;gap:9px;padding:6px 0}
+.skel i{display:block;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--inset),#f3f8fd,var(--inset));background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+.skel i.lg{height:22px;width:55%}.skel i.sm{width:38%}
+@keyframes shimmer{to{background-position:-200% 0}}
+.step .num{transition:background .25s,border-color .25s,color .25s}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 .card h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
 .card h2::before{content:"";width:3px;height:15px;border-radius:2px;background:var(--sea);flex:none}
@@ -207,9 +215,10 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
 .bnav a svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
 .bnav a.active{color:var(--sea)}
 @media(min-width:960px){
- #map{height:52vh}
+ #map{height:58vh}
+ .panel{padding-left:max(4vw,24px);padding-right:max(4vw,24px)}
 }
-@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}#splash .bar,#splash .wrap{animation:none}#splash{transition:none}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}#splash .bar,#splash .wrap{animation:none}#splash{transition:none}main[data-stage] [data-st]{animation:none!important}.skel i,.step .num,.modalcard{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -656,7 +665,7 @@ $('addWp').addEventListener('click', () => {
 });
 $('clearWp').addEventListener('click', () => { S.wps = []; S.meta = []; afterRouteChange(); });
 
-function showMsg(t) { const m = $('msg'); m.textContent = t; m.classList.toggle('show', !!t); }
+function showMsg(t, ok) { const m = $('msg'); m.textContent = t; m.classList.toggle('show', !!t); m.classList.toggle('ok', !!(t && ok)); }
 
 // ---------- time inputs ----------
 const nextHour = () => Math.ceil(Date.now() / 3600e3) * 3600e3;
@@ -818,7 +827,7 @@ async function calc() {
  if (!vr.ok) { showMsg('Rute belum valid: ' + vr.errors.join(' ')); return; }
  if (S.wps.length > MAX_WP) { showMsg(`Terlalu banyak waypoint (${S.wps.length}); maksimal ${MAX_WP}. Bagi rute menjadi beberapa leg.`); return; }
  if (S.samples.length > MAX_SAMPLES) { showMsg(`Rute terlalu panjang: ${S.samples.length} titik prakiraan, maksimal ${MAX_SAMPLES} (waypoint + titik bantu tiap 20 NM). Bagi menjadi beberapa leg.`); return; }
- WF.loading = true; renderActionbar(); $('status').innerHTML = '<div class="hint">Mengambil prakiraan cuaca sepanjang rute…</div>';
+ WF.loading = true; renderActionbar(); $('status').innerHTML = '<div class="skel" role="status" aria-label="Mengambil prakiraan"><i class="lg"></i><i></i><i class="sm"></i></div><p class="hint">Mengambil prakiraan cuaca sepanjang rute…</p>';
  try {
   S.data = await fetchData(S.samples);
   S.dataKey = keyOf(S.samples);
@@ -960,7 +969,7 @@ $('impFile').addEventListener('change', async e => {
  S.meta = r.list.map(w => ({ name: (w.name || '').slice(0, 40), speed: w.speed ?? null }));
  detachRoute(); afterRouteChange();
  if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 });
- showMsg(`Impor "${f.name}": ${S.wps.length} waypoint dimuat. Lanjut ke tahap Hitung lalu Intelijen.` + (v.warnings.length ? ' Catatan: ' + v.warnings.slice(0, 4).join(' ') : ''));
+ showMsg(`Impor "${f.name}": ${S.wps.length} waypoint dimuat. Lanjut ke tahap Hitung lalu Intelijen.` + (v.warnings.length ? ' Catatan: ' + v.warnings.slice(0, 4).join(' ') : ''), true);
 });
 $('expCsv').addEventListener('click', () => { if (S.wps.length) download(`sigap-laut-rute-${stamp()}.csv`, WIO.toCsv(wpRows()), 'text/csv'); });
 $('expGeo').addEventListener('click', () => {
@@ -1147,12 +1156,12 @@ $('routeSave').addEventListener('click', () => {
  let ar = activeRoute();
  if (ar) { ar.name = name; ar.desc = $('routeDesc').value.trim(); ar.wps = S.wps.map(w => w.slice()); ar.meta = S.meta.map(m => Object.assign({}, m)); ar.modified = now; }
  else { ar = { id: uid(), name, desc: $('routeDesc').value.trim(), wps: S.wps.map(w => w.slice()), meta: S.meta.map(m => Object.assign({}, m)), created: now, modified: now }; RLIB.push(ar); S.routeId = ar.id; try { localStorage.setItem('sl-active', ar.id); } catch (e) {} }
- saveRLIB(); renderRouteLib(); showMsg(`Rute "${name}" disimpan ke pustaka.`);
+ saveRLIB(); renderRouteLib(); showMsg(`Rute "${name}" disimpan ke pustaka.`, true);
 });
 $('routeDup').addEventListener('click', () => {
  const ar = activeRoute(); if (!ar) return; const now = Date.now();
  const copy = { id: uid(), name: ar.name + ' (salinan)', desc: ar.desc, wps: ar.wps.map(w => w.slice()), meta: ar.meta.map(m => Object.assign({}, m)), created: now, modified: now };
- RLIB.push(copy); saveRLIB(); loadRoute(copy.id); showMsg(`Rute diduplikasi: "${copy.name}".`);
+ RLIB.push(copy); saveRLIB(); loadRoute(copy.id); showMsg(`Rute diduplikasi: "${copy.name}".`, true);
 });
 let delArm = false, delTimer = null;
 $('routeDel').addEventListener('click', () => {
@@ -1160,7 +1169,7 @@ $('routeDel').addEventListener('click', () => {
  if (!delArm) { delArm = true; $('routeDel').textContent = 'Klik lagi untuk hapus'; delTimer = setTimeout(() => { delArm = false; $('routeDel').textContent = 'Hapus'; }, 3000); return; }
  clearTimeout(delTimer); delArm = false; $('routeDel').textContent = 'Hapus';
  const nm = ar.name; RLIB = RLIB.filter(r => r.id !== ar.id); detachRoute(); saveRLIB(); renderRouteLib();
- showMsg(`Rute "${nm}" dihapus dari pustaka. Rute kerja di peta tetap ada.`);
+ showMsg(`Rute "${nm}" dihapus dari pustaka. Rute kerja di peta tetap ada.`, true);
 });
 [$('routeName'), $('routeDesc')].forEach(el => el.addEventListener('input', renderRouteLib));
 
