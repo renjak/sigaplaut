@@ -91,6 +91,8 @@ main[data-stage="route"] #map,main[data-stage="intel"] #map{display:block}
 .report ul.crit li{color:#9b2420}
 .report .vpill{display:inline-block;padding:3px 11px;border-radius:7px;font-weight:700;font-size:12.5px;color:#fff}
 .report .vpill.a{color:#3a2b00}.report .vpill.x{color:#223040}
+.routelib{display:grid;gap:10px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:var(--ice);margin-bottom:8px}
+.routelib hr{border:0;border-top:1px solid var(--line);margin:0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 .card h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
 .card h2::before{content:"";width:3px;height:15px;border-radius:2px;background:var(--sea);flex:none}
@@ -285,9 +287,19 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
   <section class="card" id="secPlan" data-st="route">
    <h2>Perencanaan rute</h2>
    <p class="stageintro">Masukkan koordinat waypoint berurutan (ketuk peta, isi manual, atau impor berkas). Peta memperbarui rute seketika.</p>
-   <div class="row">
-    <label style="flex:1 1 180px">Contoh rute
-     <select id="preset"></select></label>
+   <div class="routelib">
+    <div class="row">
+     <label style="flex:1 1 180px">Rute tersimpan<select id="routeSel"><option value="">— rute kerja (belum disimpan) —</option></select></label>
+     <label style="flex:1 1 150px">Templat contoh<select id="preset"></select></label>
+    </div>
+    <label class="full">Nama rute<input id="routeName" maxlength="60" autocomplete="off" placeholder="mis. Batam – Natuna"></label>
+    <label class="full">Deskripsi (opsional)<input id="routeDesc" maxlength="120" autocomplete="off" placeholder="Catatan singkat"></label>
+    <p class="hint" id="routeMeta"></p>
+    <div class="row">
+     <button type="button" class="primary" id="routeSave">Simpan rute</button>
+     <button type="button" class="ghost" id="routeDup">Duplikat</button>
+     <button type="button" class="ghost" id="routeDel">Hapus</button>
+    </div>
    </div>
    <p class="hint" id="wpCount" aria-live="polite"></p>
    <p class="err" id="wpErr" role="alert"></p>
@@ -593,7 +605,7 @@ $('specFile').addEventListener('change', async e => {
 
 // ---------- route UI ----------
 $('preset').innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
-$('preset').addEventListener('change', e => { S.wps = PRESETS[+e.target.value].wps.map(w => w.slice()); S.meta = []; afterRouteChange(true); });
+$('preset').addEventListener('change', e => { S.wps = PRESETS[+e.target.value].wps.map(w => w.slice()); S.meta = []; detachRoute(); afterRouteChange(true); });
 
 function renderWps() {
  syncMeta();
@@ -782,7 +794,7 @@ function afterRouteChange(fromPreset) {
  save(); renderWps(); drawRoute(); renderWarnings();
  if (keyOf(buildSamples(S.wps)) !== S.dataKey) { $('status').innerHTML = '<div class="hint">Rute berubah. Buka tahap Intelijen untuk mengambil prakiraan terbaru.</div>'; $('meta').textContent = ''; }
  else compute();
- refreshWF();
+ refreshWF(); renderRouteLib();
 }
 
 function drawRoute(rows) {
@@ -946,7 +958,7 @@ $('impFile').addEventListener('change', async e => {
  if (errs.length) { showMsg(`Impor "${f.name}" ditolak, rute tidak diubah. ` + errs.slice(0, 8).join(' ') + (errs.length > 8 ? ` (+${errs.length - 8} galat lain)` : '')); return; }
  S.wps = r.list.map(w => [w.lat, w.lon]);
  S.meta = r.list.map(w => ({ name: (w.name || '').slice(0, 40), speed: w.speed ?? null }));
- afterRouteChange();
+ detachRoute(); afterRouteChange();
  if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 });
  showMsg(`Impor "${f.name}": ${S.wps.length} waypoint dimuat. Lanjut ke tahap Hitung lalu Intelijen.` + (v.warnings.length ? ' Catatan: ' + v.warnings.slice(0, 4).join(' ') : ''));
 });
@@ -1099,11 +1111,65 @@ $('vmGo').addEventListener('click', () => { $('vesselModal').hidden = true; goSt
 $('vmReview').addEventListener('click', () => { $('vesselModal').hidden = true; });
 $('vesselModal').addEventListener('click', e => { if (e.target === $('vesselModal')) $('vesselModal').hidden = true; });
 
+// ===== Fase 3: perpustakaan multi-rute (di perangkat) =====
+let RLIB = [];
+try { const a = JSON.parse(localStorage.getItem('sl-routes') || '[]'); if (Array.isArray(a)) RLIB = a; } catch (e) {}
+const uid = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const fmtDate = ms => new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+const saveRLIB = () => { try { localStorage.setItem('sl-routes', JSON.stringify(RLIB)); } catch (e) {} };
+const activeRoute = () => RLIB.find(r => r.id === S.routeId) || null;
+const metaKey = m => (m || []).map(x => [x.name || '', x.speed == null ? '' : x.speed]);
+function routeIsDirty() { const ar = activeRoute(); return !!ar && (JSON.stringify(S.wps) !== JSON.stringify(ar.wps) || JSON.stringify(metaKey(S.meta)) !== JSON.stringify(metaKey(ar.meta))); }
+function renderRouteLib() {
+ const sel = $('routeSel'); if (!sel) return;
+ sel.innerHTML = '<option value="">— rute kerja (belum disimpan) —</option>' + RLIB.map(r => `<option value="${r.id}"${r.id === S.routeId ? ' selected' : ''}>${esc(r.name || 'Tanpa nama')} (${r.wps.length} WP)</option>`).join('');
+ const ar = activeRoute(), dirty = routeIsDirty();
+ if (ar && document.activeElement !== $('routeName')) $('routeName').value = ar.name || '';
+ if (ar && document.activeElement !== $('routeDesc')) $('routeDesc').value = ar.desc || '';
+ $('routeDel').disabled = !ar; $('routeDup').disabled = !ar;
+ $('routeMeta').textContent = ar
+  ? `Dibuat ${fmtDate(ar.created)} · diubah ${fmtDate(ar.modified)} WIB${dirty ? ' · ⚠ perubahan belum disimpan' : ' · tersimpan'}`
+  : (S.wps.length >= 2 ? 'Rute kerja belum tersimpan di pustaka. Beri nama lalu "Simpan rute".' : 'Belum ada rute. Pilih templat, ketuk peta, atau impor berkas.');
+}
+function loadRoute(id) {
+ const r = RLIB.find(x => x.id === id); if (!r) return;
+ S.wps = r.wps.map(w => w.slice()); S.meta = r.meta.map(m => Object.assign({}, m));
+ S.routeId = id; try { localStorage.setItem('sl-active', id); } catch (e) {}
+ $('preset').value = String(PRESETS.length - 1);
+ afterRouteChange(true);
+ if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 });
+}
+function detachRoute() { S.routeId = null; try { localStorage.removeItem('sl-active'); } catch (e) {} }
+$('routeSel').addEventListener('change', e => { const id = e.target.value; if (id) loadRoute(id); else { detachRoute(); renderRouteLib(); } });
+$('routeSave').addEventListener('click', () => {
+ if (S.wps.length < 2) { showMsg('Rute perlu minimal 2 waypoint untuk disimpan.'); return; }
+ const name = $('routeName').value.trim() || 'Rute ' + fmtDate(Date.now()), now = Date.now();
+ let ar = activeRoute();
+ if (ar) { ar.name = name; ar.desc = $('routeDesc').value.trim(); ar.wps = S.wps.map(w => w.slice()); ar.meta = S.meta.map(m => Object.assign({}, m)); ar.modified = now; }
+ else { ar = { id: uid(), name, desc: $('routeDesc').value.trim(), wps: S.wps.map(w => w.slice()), meta: S.meta.map(m => Object.assign({}, m)), created: now, modified: now }; RLIB.push(ar); S.routeId = ar.id; try { localStorage.setItem('sl-active', ar.id); } catch (e) {} }
+ saveRLIB(); renderRouteLib(); showMsg(`Rute "${name}" disimpan ke pustaka.`);
+});
+$('routeDup').addEventListener('click', () => {
+ const ar = activeRoute(); if (!ar) return; const now = Date.now();
+ const copy = { id: uid(), name: ar.name + ' (salinan)', desc: ar.desc, wps: ar.wps.map(w => w.slice()), meta: ar.meta.map(m => Object.assign({}, m)), created: now, modified: now };
+ RLIB.push(copy); saveRLIB(); loadRoute(copy.id); showMsg(`Rute diduplikasi: "${copy.name}".`);
+});
+let delArm = false, delTimer = null;
+$('routeDel').addEventListener('click', () => {
+ const ar = activeRoute(); if (!ar) return;
+ if (!delArm) { delArm = true; $('routeDel').textContent = 'Klik lagi untuk hapus'; delTimer = setTimeout(() => { delArm = false; $('routeDel').textContent = 'Hapus'; }, 3000); return; }
+ clearTimeout(delTimer); delArm = false; $('routeDel').textContent = 'Hapus';
+ const nm = ar.name; RLIB = RLIB.filter(r => r.id !== ar.id); detachRoute(); saveRLIB(); renderRouteLib();
+ showMsg(`Rute "${nm}" dihapus dari pustaka. Rute kerja di peta tetap ada.`);
+});
+[$('routeName'), $('routeDesc')].forEach(el => el.addEventListener('input', renderRouteLib));
+
 // ---------- boot ----------
 if (!S.wps.length) { S.wps = PRESETS[0].wps.map(w => w.slice()); $('preset').value = '0'; }
 else { const pi = PRESETS.findIndex(p => JSON.stringify(p.wps) === JSON.stringify(S.wps)); $('preset').value = String(pi >= 0 ? pi : PRESETS.length - 1); }
 $('speed').value = S.ship ? S.ship.speed : 14;
-fillShipForm(); showShip(); renderSaved(); renderWps(); drawRoute();
+try { const aid = localStorage.getItem('sl-active'); if (aid && RLIB.some(r => r.id === aid)) S.routeId = aid; } catch (e) {}
+fillShipForm(); showShip(); renderSaved(); renderWps(); drawRoute(); renderRouteLib();
 if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30] });
 if (S.data && keyOf(buildSamples(S.wps)) === S.dataKey) compute();
 // Mulai pada tahap tersimpan; mundur bila prasyaratnya belum terpenuhi. Prakiraan diambil saat mencapai Intelijen.

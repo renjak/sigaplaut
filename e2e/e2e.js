@@ -219,6 +219,11 @@ async function run(browser, sc, vp) {
     await page.fill('#wps input[data-i="1"][data-f="speed"]', '99');
     await page.locator('#wps input[data-i="1"][data-f="speed"]').dispatchEvent('change');
     io.badSpeedRejected = /2–45 knot/.test(await page.locator('#msg').textContent()) && (await page.inputValue('#wps input[data-i="1"][data-f="speed"]')) === '';
+    // Fase 3: simpan rute ke pustaka lalu pastikan muncul di pemilih.
+    await page.fill('#routeName', 'Rute Uji E2E');
+    await page.click('#routeSave');
+    await page.waitForTimeout(150);
+    io.routeSaved = { opts: await page.locator('#routeSel option').count(), sel: await page.inputValue('#routeSel'), msg: await page.locator('#msg').textContent() };
     // Ekspor CSV (WP1 kini 5 kn).
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#expCsv')]);
     io.exportCsv = fs.readFileSync(await dl.path(), 'utf8');
@@ -271,7 +276,8 @@ async function run(browser, sc, vp) {
       ['ekspor CSV berisi semua WP (6 desimal, haluan, ETA UTC)', !!io.exportCsv && io.exportCsv.startsWith('seq,name,lat,lon,speed_kn,leg_nm,bearing_deg_true,eta_utc\n1,,1.125000,103.925000,5,') && io.exportCsv.trim().split('\n').length === 31, (io.exportCsv || '').split('\n').slice(0, 2).join(' / ')],
       ['impor CSV valid dimuat (3 WP, koordinat terbaca)', io.imported && io.imported.wps === 3 && /48[.,]00.?N/.test(io.imported.lat2), JSON.stringify(io.imported)],
       ['impor CSV rusak ditolak utuh, rute tidak berubah', io.rejected && io.rejected.wps === 3 && /ditolak/.test(io.rejected.msg) && /duplikat/.test(io.rejected.msg), JSON.stringify(io.rejected)],
-      ['batas 100 waypoint ditegakkan', limit && limit.wps === 100 && limit.disabled && limit.count.startsWith('100/100'), JSON.stringify(limit)]
+      ['batas 100 waypoint ditegakkan', limit && limit.wps === 100 && limit.disabled && limit.count.startsWith('100/100'), JSON.stringify(limit)],
+      ['rute tersimpan ke pustaka & terpilih', io.routeSaved && io.routeSaved.opts >= 2 && io.routeSaved.sel && /disimpan/.test(io.routeSaved.msg), JSON.stringify(io.routeSaved)]
     ]),
     ['briefing memuat kualitas data & pelabuhan', /Prakiraan pelabuhan BMKG/.test(r.brief) && (!sc.expect.sharedCell || !hasCells || /Kualitas data:/.test(r.brief)), ''],
     ['model angin gagal -> tidak pernah AMAN', !r.windFailed || r.status !== 'AMAN', r.status],
