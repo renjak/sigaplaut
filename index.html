@@ -446,20 +446,21 @@ const setOcr = (t, bad) => { $('ocrStatus').textContent = t; $('ocrStatus').clas
 
 // ---------- asal-usul tiap nilai: 'foto' (OCR), 'hitung' (rumus baku), 'perkiraan' (dari ukuran), 'manual' (diketik) ----------
 let SRC = {};
-const EST_ID = { draft: 'sDraft', ukc: 'sUkc', hs: 'sHs', cur: 'sCur', wind: 'sWind' };
-const EST_LBL = { draft: 'sarat', ukc: 'UKC', hs: 'batas gelombang', cur: 'batas arus', wind: 'batas angin' };
-const EST_UNIT = { draft: 'm', ukc: 'm', hs: 'm', cur: 'kn', wind: 'kn' };
+const EST_ID = { draft: 'sDraft', ukc: 'sUkc', hs: 'sHs', cur: 'sCur', wind: 'sWind', speed: 'sSpeed' };
+const EST_LBL = { draft: 'sarat', ukc: 'UKC', hs: 'batas gelombang', cur: 'batas arus', wind: 'batas angin', speed: 'kecepatan jelajah' };
+const EST_UNIT = { draft: 'm', ukc: 'm', hs: 'm', cur: 'kn', wind: 'kn', speed: 'kn' };
 // Baca nilai form yang sudah pasti (dalam rentang) untuk jadi dasar perkiraan.
 function readKnown() {
- const map = { loa: 'sLoa', beam: 'sBeam', draft: 'sDraft', ukc: 'sUkc', hs: 'sHs', cur: 'sCur', wind: 'sWind' };
+ const map = { loa: 'sLoa', beam: 'sBeam', draft: 'sDraft', ukc: 'sUkc', hs: 'sHs', cur: 'sCur', wind: 'sWind', speed: 'sSpeed' };
  const k = {};
  for (const key in map) { const el = $(map[key]), raw = (el.value || '').replace(',', '.').trim(); if (!raw) continue; const v = parseFloat(raw); if (Number.isFinite(v) && v >= +el.min && v <= +el.max) k[key] = v; }
  return k;
 }
 // Isi field kosong dengan perkiraan dari data terbaca; tandai .est; catat asal-usul. Tidak menimpa yang terisi.
-function estimateFill() {
+// extra: data tambahan dari foto yang bukan field form (mis. kecepatan maks → dasar perkiraan kecepatan jelajah).
+function estimateFill(extra) {
  if (typeof SigapEst === 'undefined') return { perkiraan: [], hitung: [] };
- const r = SigapEst.estimate(readKnown()), out = { perkiraan: [], hitung: [] };
+ const r = SigapEst.estimate(Object.assign(readKnown(), extra || {})), out = { perkiraan: [], hitung: [] };
  for (const k in r.fields) {
   const id = EST_ID[k]; if (!id || ($(id).value || '').trim()) continue;   // jangan timpa yang sudah ada
   $(id).value = r.fields[k]; $(id).classList.remove('bad'); $(id).classList.add('est'); SRC[k] = r.methods[k];
@@ -472,14 +473,15 @@ function applySpec(r) {
  const labelOf = { name: 'nama', loa: 'LOA', beam: 'lebar', draft: 'sarat', ukc: 'UKC', hs: 'batas gelombang', cur: 'batas arus', wind: 'batas angin' };
  const detected = [];
  Object.keys(idOf).forEach(k => { if (r.fields[k] != null) { $(idOf[k]).value = r.fields[k]; $(idOf[k]).classList.remove('bad', 'est'); SRC[k] = 'foto'; detected.push(labelOf[k]); } });
- // Lengkapi field kosong (sarat, UKC, batas gelombang/arus/angin) dengan perkiraan konservatif dari ukuran kapal.
- const est = estimateFill();
+ // Lengkapi field kosong (sarat, UKC, batas gelombang/arus/angin, kecepatan jelajah) dengan perkiraan dari ukuran kapal.
+ const est = estimateFill({ maxSpeed: r.fields.maxSpeed });
  const parts = [];
  parts.push(detected.length ? `Terbaca dari ${r.perPhoto ? r.perPhoto.length + ' foto' : 'foto'}: ${detected.join(', ')}.` : 'Tidak ada data yang terbaca jelas dari foto.');
- if (r.fields.maxSpeed) parts.push(`Kecepatan maks ${fmtN(r.fields.maxSpeed)} kn (dari foto — isi kecepatan JELAJAH, bukan maks).`);
+ if (r.fields.maxSpeed) parts.push(`Kecepatan maks ${fmtN(r.fields.maxSpeed)} kn terbaca dari foto (dasar perkiraan kecepatan jelajah).`);
  if (est.hitung.length) parts.push('Dihitung: ' + est.hitung.join(', ') + '.');
  if (est.perkiraan.length) parts.push(`Perkiraan dari ukuran kapal (bertanda ~, bisa diedit): ${est.perkiraan.join(', ')}. Nilai ini BUKAN dari dokumen resmi.`);
- if (!$('sSpeed').value) parts.push('Kecepatan jelajah wajib diisi manual (tidak diperkirakan).');
+ if (!$('sSpeed').value) parts.push('Kecepatan jelajah belum bisa diperkirakan — isi manual.');
+ if (!$('sRange').value) parts.push('Jarak jelajah (opsional) tidak bisa diperkirakan dari foto — isi dari data endurance bila ada; tidak memengaruhi analisis keselamatan.');
  parts.push('WAJIB periksa & ganti dengan angka dokumen stabilitas/perintah operasi sebelum disimpan.');
  if (r.warnings.length) parts.push(r.warnings.join(' '));
  setOcr(parts.join(' '), !detected.length && !est.perkiraan.length && !est.hitung.length);

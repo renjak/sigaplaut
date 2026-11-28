@@ -56,6 +56,23 @@ test('pita batas konservatif naik sesuai ukuran, tapi tidak melebihi kapal besar
   assert.strictEqual(est.windBand(100), 35);
 });
 
+test('kecepatan jelajah: ~55% kecepatan maks bila terbaca', () => {
+  const r = est.estimate({ loa: 60, beam: 8.1, maxSpeed: 28 });   // 0,55x28 = 15,4 -> 15
+  assert.strictEqual(r.fields.speed, 15);
+  assert.strictEqual(r.methods.speed, 'perkiraan');
+});
+
+test('kecepatan jelajah: dari panjang bila tak ada kecepatan maks', () => {
+  assert.strictEqual(est.estimate({ loa: 40 }).fields.speed, 12);   // <50
+  assert.strictEqual(est.estimate({ loa: 60 }).fields.speed, 14);   // 50-90
+  assert.strictEqual(est.estimate({ loa: 110 }).fields.speed, 16);  // >=90
+});
+
+test('kecepatan jelajah yang sudah diisi tidak ditimpa', () => {
+  const r = est.estimate({ loa: 60, maxSpeed: 28, speed: 18 });
+  assert.ok(!('speed' in r.fields));
+});
+
 test('kapal besar: sarat & batas lebih tinggi', () => {
   const r = est.estimate({ loa: 110, beam: 14 });
   assert.strictEqual(r.fields.draft, 5.5);     // maks(0,33x14=4,62 ; 0,05x110=5,5)
