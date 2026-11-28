@@ -95,6 +95,8 @@ async function run(browser, sc, vp) {
   // TAHAP 1 — KAPAL (simpan lalu auto-lanjut ke Rute)
   for (const [id, v] of Object.entries(sc.ship)) await page.fill('#' + id, v);
   await page.click('#shipForm button[type=submit]');
+  await page.waitForSelector('#vesselModal:not([hidden])', { timeout: 10000 });   // modal "Profil kapal dikonfirmasi"
+  await page.click('#vmGo');
   await page.waitForFunction(() => document.querySelector('main').dataset.stage === 'route', null, { timeout: 15000 });
   await page.waitForSelector('.leaflet-container .leaflet-tile-loaded', { timeout: 30000 });
 
@@ -150,6 +152,9 @@ async function run(browser, sc, vp) {
       routePx: (() => { const bs = [...document.querySelectorAll('.leaflet-overlay-pane path')].filter(p => ['#16a05a', '#e2a100', '#d33f3f', '#9aa7b6'].includes(p.getAttribute('stroke'))).map(p => p.getBoundingClientRect());
         if (!bs.length) return 0; return Math.max(Math.max(...bs.map(b => b.right)) - Math.min(...bs.map(b => b.left)), Math.max(...bs.map(b => b.bottom)) - Math.min(...bs.map(b => b.top))); })(),
       windFailed: /model angin gagal/.test(document.querySelector('#status').innerText),
+      wpTabs: document.querySelectorAll('#wpTimeline button').length,
+      wpDetail: document.querySelector('#wpDetail').innerText,
+      report: document.querySelector('#opReport').textContent,
       hScroll: document.documentElement.scrollWidth > window.innerWidth + 1
     };
   });
@@ -274,7 +279,9 @@ async function run(browser, sc, vp) {
       : r.status !== 'AMAN' && r.depthBad === 0 && r.depth.some(t => t.startsWith('Waspada kedangkalan')), `${r.status}, bahaya=${r.depthBad}`],
     ['penanda kedangkalan di peta', r.depthMarkers > 0, String(r.depthMarkers)],
     ['alur pelabuhan dicatat tidak dinilai', r.depth.some(t => t.startsWith('Alur pelabuhan')), ''],
-    ['briefing memuat kedalaman & sumbernya', /Kedalaman: /.test(r.brief) && /ETOPO 2022/.test(r.brief) && /Bukan untuk navigasi/.test(r.brief), '']
+    ['briefing memuat kedalaman & sumbernya', /Kedalaman: /.test(r.brief) && /ETOPO 2022/.test(r.brief) && /Bukan untuk navigasi/.test(r.brief), ''],
+    ['intelijen per waypoint terisi (pilihan + rincian)', r.wpTabs >= 2 && /WP\d/.test(r.wpDetail) && /Estimasi tiba/.test(r.wpDetail), (r.wpDetail || '').replace(/\n/g, ' ').slice(0, 70)],
+    ['ringkasan operasi terstruktur terisi (A–H)', /Profil kapal/.test(r.report) && /Status rute/.test(r.report) && /Validitas data/.test(r.report), (r.report || '').slice(0, 70)]
   ];
   return { sc, vp, r, checks, shot };
 }

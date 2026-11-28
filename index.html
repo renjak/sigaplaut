@@ -59,6 +59,38 @@ main[data-stage="route"] #map,main[data-stage="intel"] #map{display:block}
 .voy span{display:block;font-size:11px;color:var(--muted)}
 .voy b{font-size:17px;color:var(--navy);font-variant-numeric:tabular-nums}
 .stageintro{font-size:12.5px;color:var(--muted);margin:0 0 6px}
+/* ===== Fase 2: modal konfirmasi, drill-down waypoint, laporan operasi ===== */
+.modal{position:fixed;inset:0;z-index:200;background:rgba(7,27,53,.55);display:grid;place-items:center;padding:20px}
+.modal[hidden]{display:none!important}
+.modalcard{background:#fff;border-radius:16px;max-width:360px;width:100%;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(7,27,53,.35);animation:rise .25s ease both}
+.modalicon{width:52px;height:52px;border-radius:50%;background:var(--g-tint);color:var(--g);display:grid;place-items:center;font-size:26px;margin:0 auto 12px;font-weight:700}
+.modalcard h3{margin:0 0 6px;color:var(--navy);font-size:18px}
+.modalcard p{margin:0 0 18px;color:var(--muted);font-size:13.5px}
+.modalbtns{display:grid;gap:8px}
+.wptl{display:flex;gap:4px;overflow-x:auto;padding:4px 2px 10px;margin-bottom:4px;scrollbar-width:thin}
+.wptl button{flex:none;width:40px;min-height:48px;border-radius:9px;border:2px solid transparent;background:var(--inset);color:var(--ink);font-size:10px;font-weight:700;display:grid;place-items:center;gap:3px;padding:4px 0;cursor:pointer}
+.wptl button .d{width:10px;height:10px;border-radius:50%}
+.wptl button.sel{border-color:var(--sea);box-shadow:0 0 0 2px #fff inset}
+.wpdet{border:1px solid var(--line2);border-radius:12px;padding:12px;background:var(--card2);margin-bottom:12px}
+.wpdet h3{margin:0 0 8px;font-size:14px;color:var(--navy);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wpdet .vb{display:inline-block;padding:2px 9px;border-radius:7px;font-weight:700;font-size:11px;color:#fff}
+.wpdet .vb.a{color:#3a2b00}.wpdet .vb.x{color:#223040}
+.wpdet .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5em,1fr));gap:8px}
+.wpdet .grid div{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+.wpdet .grid span{display:block;font-size:10.5px;color:var(--muted)}
+.wpdet .grid b{font-size:14px;color:var(--navy);font-variant-numeric:tabular-nums}
+.wpdet .prov{font-size:11px;color:var(--muted);margin:8px 0 0}
+#tbl tbody tr{cursor:pointer}
+#tbl tbody tr.sel td{background:var(--cyan-tint)}
+.report h3{font-size:12px;color:var(--ocean);margin:15px 0 6px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line2);padding-bottom:3px}
+.report h3:first-child{margin-top:0}
+.report .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13.5px;margin:0}
+.report .kv dt{color:var(--muted)}
+.report .kv dd{margin:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.report ul{margin:4px 0;padding-left:18px;font-size:13.5px}
+.report ul.crit li{color:#9b2420}
+.report .vpill{display:inline-block;padding:3px 11px;border-radius:7px;font-weight:700;font-size:12.5px;color:#fff}
+.report .vpill.a{color:#3a2b00}.report .vpill.x{color:#223040}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 .card h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
 .card h2::before{content:"";width:3px;height:15px;border-radius:2px;background:var(--sea);flex:none}
@@ -102,12 +134,11 @@ code{font-size:12px;background:var(--ice);color:var(--ocean);padding:1px 5px;bor
 #ocrStatus{color:var(--ocean)}
 #ocrStatus.bad{color:#b4322c}
 @media print{
- header,#map,.noprint,.stepper,.actionbar,#splash,#bmkgCard details,.row,.win,.legend,footer a[href]::after{display:none!important}
+ header,#map,.noprint,.stepper,.actionbar,#splash,.row,.win,.legend,details,.stageintro,footer a[href]::after{display:none!important}
  main{display:block} .panel{max-height:none;overflow:visible;padding:0;background:#fff}
- main[data-stage] [data-st]{display:block!important}
  .card{break-inside:avoid;border:0;padding:8px 0;box-shadow:none;background:#fff}
  .card h2::before{display:none}
- body{background:#fff;color:#000;font-size:12px} pre{background:#fff;color:#000;border:1px solid #999}
+ body{background:#fff;color:#000;font-size:12px}
 }
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
 .hint a,footer a,.card a,details summary{color:var(--ocean)}
@@ -288,6 +319,9 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
 
   <section class="card" data-st="intel">
    <h2>Intelijen per waypoint</h2>
+   <p class="stageintro">Pilih waypoint untuk rincian cuaca, risiko &amp; estimasi tiba. Deret warna di bawah = tingkat risiko tiap WP.</p>
+   <div class="wptl" id="wpTimeline" role="tablist" aria-label="Pilih waypoint"></div>
+   <div class="wpdet" id="wpDetail"></div>
    <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input type="checkbox" id="allPts" style="width:20px;height:20px"> Tampilkan titik bantu tiap 20 NM</label>
    <div class="scroll"><table id="tbl"><thead><tr><th>Titik</th><th>Tiba (WIB)</th><th>Gel. (m)</th><th>Angin</th><th>Arus</th><th>Status</th><th>Haluan</th><th>Ruas (NM)</th></tr></thead><tbody></tbody></table></div>
    <p class="hint">Gel. = tinggi gelombang signifikan, rentang antarmodel (terendah–tertinggi). Angin dan arus dalam knot. Status per titik (titik berwarna) menilai cuaca di titik itu: gelombang tertinggi + margin, serta batas angin dan arus kapal. Bahaya kedangkalan dinilai per ruas, lihat "Status rute". Haluan = haluan sejati awal ke titik berikutnya; jarak geodesik WGS84.</p>
@@ -296,11 +330,12 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
   <section class="card" data-st="summary">
    <h2>Ringkasan operasi</h2>
    <p class="stageintro">Laporan ringkas tingkat komando dari profil kapal, rute, perhitungan, dan intelijen. Alat bantu keputusan — bukan pengganti informasi resmi BMKG/Pushidrosal &amp; keputusan komandan.</p>
-   <pre id="brief">–</pre>
+   <div class="report" id="opReport"><div class="hint">Ringkasan tersedia setelah prakiraan diambil (tahap Intelijen).</div></div>
+   <details style="margin-top:12px"><summary>Versi teks (untuk disalin)</summary><pre id="brief">–</pre></details>
    <div class="row">
-    <button type="button" id="copy">Salin briefing</button>
+    <button type="button" class="primary" id="printRep">Cetak / simpan PDF</button>
+    <button type="button" id="copy">Salin ringkasan teks</button>
     <button type="button" class="ghost" id="expRep">Ekspor analisis CSV</button>
-    <button type="button" class="ghost" id="printRep">Cetak / simpan PDF</button>
    </div>
   </section>
 
@@ -316,6 +351,17 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
  Alat bantu perencanaan keselamatan pelayaran — bukan pengganti informasi resmi BMKG, peta laut resmi (Pushidrosal), maupun keputusan komandan. Koordinat dikirim ke Open-Meteo lewat server; versi operasional dijalankan di server internal agar rute tidak keluar.
 </footer>
 <div class="actionbar" id="actionbar" role="group" aria-label="Tindakan tahap"></div>
+<div class="modal" id="vesselModal" hidden role="dialog" aria-modal="true" aria-labelledby="vmTitle">
+ <div class="modalcard">
+  <div class="modalicon" aria-hidden="true">✓</div>
+  <h3 id="vmTitle">Profil kapal dikonfirmasi</h3>
+  <p>Profil operasional kapal siap digunakan untuk perencanaan rute &amp; analisis peringatan dini.</p>
+  <div class="modalbtns">
+   <button type="button" class="primary" id="vmGo">Lanjut ke perencanaan rute →</button>
+   <button type="button" class="ghost" id="vmReview">Tinjau profil</button>
+  </div>
+ </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/lib/geo.js"></script>
@@ -420,7 +466,7 @@ $('shipForm').addEventListener('submit', e => {
  if (s.name) upsertShip(s);                 // simpan ke perpustakaan kapal (hanya bila dinamai)
  $('speed').value = s.speed;
  showShip(); compute();
- refreshWF(); if (WF.stage === 'vessel') goStage('route');
+ refreshWF(); if (WF.stage === 'vessel') $('vesselModal').hidden = false;
 });
 SHIP_FIELDS.forEach(([id, k]) => $(id).addEventListener('input', () => { $(id).classList.remove('bad', 'est'); if (($(id).value || '').trim()) SRC[k] = 'manual'; else delete SRC[k]; $('shipErr').textContent = ''; }));
 // Tombol: isi field kosong dengan perkiraan dari data yang sudah ada (tanpa foto).
@@ -821,7 +867,7 @@ function compute() {
 
  $('tbl').querySelector('tbody').innerHTML = T.rows.filter(r => r.p.wp != null || $('allPts').checked).map(r => {
   const nm_ = `<span class="dot ${r.vd}" title="${r.vd === 'x' ? 'tanpa data' : LBL[r.vd].toLowerCase()}"></span>` + (r.p.wp != null ? `<b>WP${r.p.wp + 1}</b>` : `<span style="color:var(--muted)">${Math.round(r.p.cum)} NM</span>`);
-  return `<tr><td>${nm_}</td><td>${fmtT(r.eta, { month: undefined })}</td><td>${r.hn != null && r.hs != null && r.hs - r.hn >= 0.05 ? fmt1(r.hn) + '–' + fmt1(r.hs) : fmt1(r.hs)}</td><td>${r.w == null ? '–' : Math.round(r.w) + (r.g != null ? ' (' + Math.round(r.g) + ')' : '')}</td><td>${fmt1(r.cur)}</td><td><span class="dot ${r.vd}"></span>${r.vd === 'x' ? '–' : LBL[r.vd].toLowerCase()}</td><td>${r.p.wp != null && segs[r.p.wp] ? segs[r.p.wp].bearing.toFixed(1).padStart(5, '0') + '°' : '–'}</td><td>${r.p.wp != null && segs[r.p.wp] ? fmt1(segs[r.p.wp].nm) : '–'}</td></tr>`;
+  return `<tr${r.p.wp != null ? ` data-wp="${r.p.wp}"` : ''}><td>${nm_}</td><td>${fmtT(r.eta, { month: undefined })}</td><td>${r.hn != null && r.hs != null && r.hs - r.hn >= 0.05 ? fmt1(r.hn) + '–' + fmt1(r.hs) : fmt1(r.hs)}</td><td>${r.w == null ? '–' : Math.round(r.w) + (r.g != null ? ' (' + Math.round(r.g) + ')' : '')}</td><td>${fmt1(r.cur)}</td><td><span class="dot ${r.vd}"></span>${r.vd === 'x' ? '–' : LBL[r.vd].toLowerCase()}</td><td>${r.p.wp != null && segs[r.p.wp] ? segs[r.p.wp].bearing.toFixed(1).padStart(5, '0') + '°' : '–'}</td><td>${r.p.wp != null && segs[r.p.wp] ? fmt1(segs[r.p.wp].nm) : '–'}</td></tr>`;
  }).join('');
 
  $('winFor').textContent = `Untuk ${name} pada ${varied ? 'kecepatan per ruas (dasar ' + fmt1(speed) + ' knot)' : fmt1(speed) + ' knot'}. Ketuk jam untuk memilih waktu berangkat.` + (DR && (DR.level === 'r' || DR.level === 'a') ? ' Warna jendela hanya menilai cuaca; rute ini juga memiliki temuan kedangkalan (lihat Status rute) yang tidak hilang dengan mengubah jam berangkat.' : '');
@@ -863,7 +909,9 @@ function compute() {
  if (depthSrc) lines.push(depthSrc);
  lines.push('', `Sumber: gelombang ${(S.data.waveModels || []).join(', ')}; angin ${(S.data.windModels || []).join(', ') || '–'} (via Open-Meteo, diambil ${fmtT(S.data.at)} WIB); peringatan dini cuaca BMKG. Nilai gelombang = tertinggi antarmodel. Cek peringatan gelombang resmi BMKG sebelum berlayar.`);
  $('brief').textContent = lines.join('\n');
- S.last = { T, segs, depart, worst, total, arrive, source: S.data, at: Date.now(), margin };
+ S.last = { T, segs, depart, worst, total, arrive, source: S.data, at: Date.now(), margin, name, hours, speed, varied, best, notes, dn, dq, ports, depthSrc, DR, ship: sh, corridor: P.corridor };
+ if (selWp >= T.rows.filter(r => r.p.wp != null).length) selWp = 0;
+ renderWpTimeline(); renderWpDetail(); renderReport();
 }
 $('win').addEventListener('click', e => { const b = e.target.closest('.slot'); if (b) { $('depart').value = toLocalInput(+b.dataset.d); compute(); } });
 $('copy').addEventListener('click', async () => {
@@ -977,8 +1025,79 @@ function goStage(s) {
  if (s === 'route' || s === 'intel') setTimeout(() => { map.invalidateSize(); if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 }); }, 80);
  if (s === 'calc') renderVoyage();
  if (s === 'intel') ensureIntel();
+ if (s === 'summary') renderReport();
 }
 document.querySelectorAll('.step').forEach(b => b.addEventListener('click', () => goStage(b.dataset.go)));
+
+// ===== Fase 2: drill-down intelijen per waypoint =====
+let selWp = 0;
+const wpRowsOnly = () => (S.last ? S.last.T.rows.filter(r => r.p.wp != null) : []);
+function renderWpTimeline() {
+ const rows = wpRowsOnly(), el = $('wpTimeline'); if (!el) return;
+ if (!rows.length) { el.innerHTML = ''; return; }
+ if (selWp >= rows.length) selWp = rows.length - 1;
+ el.innerHTML = rows.map((r, i) => `<button type="button" role="tab" aria-selected="${i === selWp}" class="${i === selWp ? 'sel' : ''}" data-wp="${i}" title="WP${r.p.wp + 1} – ${r.vd === 'x' ? 'tanpa data' : LBL[r.vd]}">WP${r.p.wp + 1}<span class="d ${r.vd}"></span></button>`).join('');
+}
+function renderWpDetail() {
+ const rows = wpRowsOnly(), el = $('wpDetail'); if (!el) return;
+ if (!rows.length || !S.last) { el.innerHTML = '<div class="hint">Belum ada data waypoint. Ambil prakiraan di tahap ini.</div>'; return; }
+ if (selWp >= rows.length) selWp = rows.length - 1;
+ const r = rows[selWp], segs = S.last.segs, prevSeg = r.p.wp > 0 ? segs[r.p.wp - 1] : null, sh = S.last.ship;
+ const hsTxt = r.hs == null ? '–' : ((r.hn != null && r.hs - r.hn >= 0.05 ? fmt1(r.hn) + '–' + fmt1(r.hs) : fmt1(r.hs)) + ' m');
+ const windTxt = r.w == null ? '–' : Math.round(r.w) + (r.g != null ? ' (hembus ' + Math.round(r.g) + ')' : '') + ' kn';
+ const over = [];
+ if (r.hs != null && sh.hs && r.hs + S.last.margin > sh.hs) over.push('gelombang');
+ if (r.w != null && sh.wind && r.w > sh.wind) over.push('angin');
+ if (r.cur != null && sh.cur && r.cur > sh.cur) over.push('arus');
+ const grid = [
+  ['Posisi', fmtC(r.p.lat, true) + ' ' + fmtC(r.p.lon, false)],
+  ['Dari WP sebelumnya', prevSeg ? fmt1(prevSeg.nm) + ' NM' : '–'],
+  ['Jarak kumulatif', Math.round(r.p.cum) + ' NM'],
+  ['Estimasi tiba', fmtT(r.eta) + ' WIB'],
+  ['Gelombang signifikan', hsTxt],
+  ['Alun / periode', (r.sw != null ? fmt1(r.sw) + ' m' : '–') + ' / ' + (r.tp != null ? fmt1(r.tp) + ' s' : '–')],
+  ['Angin', windTxt],
+  ['Arus', r.cur == null ? '–' : fmt1(r.cur) + ' kn']
+ ];
+ el.innerHTML = `<h3>WP${r.p.wp + 1} <span class="vb ${r.vd}">${r.vd === 'x' ? 'TANPA DATA' : LBL[r.vd].toUpperCase()}</span></h3>
+  <div class="grid">${grid.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+  ${over.length ? `<p class="prov" style="color:#9b2420;font-weight:600">Melebihi batas kapal: ${esc(over.join(', '))}.</p>` : ''}
+  <p class="prov">Gelombang/angin/arus = PRAKIRAAN model (bukan observasi). Sumber gelombang: ${esc((r.wm || S.last.source.waveModels || []).join(', ') || '–')}; diambil ${fmtT(S.last.source.at)} WIB. Visibilitas/hujan tidak tersedia dari sumber ini.</p>`;
+ document.querySelectorAll('#tbl tbody tr').forEach(tr => tr.classList.remove('sel'));
+ const tr = document.querySelector('#tbl tbody tr[data-wp="' + r.p.wp + '"]'); if (tr) tr.classList.add('sel');
+}
+function selectWp(i) { selWp = i; renderWpTimeline(); renderWpDetail(); }
+$('wpTimeline').addEventListener('click', e => { const b = e.target.closest('button'); if (b) selectWp(+b.dataset.wp); });
+$('tbl').addEventListener('click', e => { const tr = e.target.closest('tr[data-wp]'); if (tr) selectWp(+tr.dataset.wp); });
+
+// ===== Fase 2: laporan ringkasan operasi terstruktur =====
+function renderReport() {
+ const el = $('opReport'); if (!el) return;
+ const L_ = S.last;
+ if (!L_) { el.innerHTML = '<div class="hint">Ringkasan tersedia setelah prakiraan diambil (tahap Intelijen).</div>'; return; }
+ const sh = L_.ship, T = L_.T, VCOL = { g: 'var(--g)', a: 'var(--a)', r: 'var(--r)', x: 'var(--x)' };
+ const kv = arr => `<dl class="kv">${arr.filter(Boolean).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+ const estK = Object.keys(sh.src || {});
+ const spec = [sh.loa && `LOA ${fmtN(sh.loa)} m`, sh.beam && `lebar ${fmtN(sh.beam)} m`, sh.draft && `sarat ${fmtN(sh.draft)} m`, sh.ukc && `UKC ${fmtN(sh.ukc)} m`].filter(Boolean).join(', ');
+ const wpR = T.rows.filter(r => r.p.wp != null), crit = wpR.filter(r => r.vd === 'r'), caut = wpR.filter(r => r.vd === 'a');
+ const best = L_.best, co = (k, est) => est ? ' (perkiraan)' : '';
+ el.innerHTML =
+  `<h3>A · Profil kapal</h3>${kv([['Kapal', L_.name], ['Dimensi', spec || '–'], ['Kecepatan jelajah', fmtN(sh.speed) + ' kn'], ['Batas gelombang', fmtN(sh.hs) + ' m' + co('hs', estK.includes('hs'))], ['Batas angin', sh.wind ? fmtN(sh.wind) + ' kn' + co('wind', estK.includes('wind')) : '–'], ['Batas arus', sh.cur ? fmtN(sh.cur) + ' kn' + co('cur', estK.includes('cur')) : '–']])}`
+  + (estK.length ? `<p class="prov" style="color:#8a5a00">Sebagian batas = perkiraan dari ukuran kapal, BUKAN dokumen resmi — verifikasi sebelum berlayar.</p>` : '')
+  + `<h3>B · Rute</h3>${kv([['Dari', 'WP1 · ' + fmtC(S.wps[0][0], true) + ' ' + fmtC(S.wps[0][1], false)], ['Tujuan', 'WP' + S.wps.length + ' · ' + fmtC(S.wps[S.wps.length - 1][0], true) + ' ' + fmtC(S.wps[S.wps.length - 1][1], false)], ['Jumlah waypoint', String(S.wps.length)]])}`
+  + `<h3>C · Perhitungan pelayaran</h3>${kv([['Jarak total', Math.round(L_.total) + ' NM (geodesik WGS84)'], ['Kecepatan', (L_.varied ? 'per ruas, dasar ' : '') + fmt1(L_.speed) + ' kn'], ['Durasi', '±' + fmt1(L_.hours) + ' jam'], ['Berangkat', fmtT(L_.depart) + ' WIB'], ['Tiba', fmtT(L_.arrive) + ' WIB']])}`
+  + `<h3>D · Rekomendasi berangkat</h3>` + (best ? kv([['Jendela terbaik', fmtT(best.d) + ' WIB'], ['Kondisi', (best.vd === 'x' ? 'di luar jangkauan data' : LBL[best.vd]) + (best.maxE != null ? ', maks. efektif ' + fmt1(best.maxE) + ' m' : '')]]) + (L_.worst !== 'g' && best.vd === 'g' ? `<p class="prov">Hanya menilai cuaca; temuan kedangkalan/kelengkapan data tetap berlaku — rute belum dinyatakan aman.</p>` : '') : '<p class="hint">Data tidak cukup untuk rekomendasi andal.</p>')
+  + `<h3>E · Status rute</h3><p><span class="vpill ${L_.worst}" style="background:${VCOL[L_.worst]}">${LBL[L_.worst]}</span></p>${kv([['Gelombang maks. efektif', fmt1(T.maxE) + ' m' + (T.at ? ' (' + segName(T.at) + ')' : '')], T.maxW >= 0 && ['Angin maks.', Math.round(T.maxW) + ' kn'], T.maxC >= 0 && ['Arus maks.', fmt1(T.maxC) + ' kn'], ['Kedalaman terdangkal', L_.DR && L_.DR.minDepth != null && L_.DR.minDepth !== Infinity ? fmt1(L_.DR.minDepth) + ' m' : '–']])}`
+  + (crit.length || caut.length ? `<h3>F · Waypoint berisiko</h3>` + (crit.length ? `<ul class="crit">${crit.map(r => `<li>WP${r.p.wp + 1} (${fmtT(r.eta, { month: undefined })}): ${LBL[r.vd]} — gel. ${fmt1(r.hs)} m${r.w != null ? ', angin ' + Math.round(r.w) + ' kn' : ''}</li>`).join('')}</ul>` : '') + (caut.length ? `<p class="prov">${caut.length} WP waspada: ${caut.slice(0, 10).map(r => 'WP' + (r.p.wp + 1)).join(', ')}${caut.length > 10 ? ' …' : ''}</p>` : '') : '')
+  + `<h3>G · Catatan &amp; keterbatasan</h3><ul>${[...L_.notes, ...L_.dn, ...L_.dq].slice(0, 14).map(n => `<li>${esc(n)}</li>`).join('') || '<li>–</li>'}</ul>`
+  + `<h3>H · Validitas data</h3>${kv([['Gelombang', (L_.source.waveModels || []).join(', ') || '–'], ['Angin', (L_.source.windModels || []).join(', ') || '–'], ['Diambil', fmtT(L_.source.at) + ' WIB'], ['Kedalaman', L_.DR ? L_.DR.source : '–'], ['Laporan dibuat', fmtT(L_.at) + ' WIB']])}`
+  + `<p class="prov">Nilai cuaca = PRAKIRAAN model, bukan observasi. Alat bantu perencanaan keselamatan — bukan pengganti informasi resmi BMKG, peta laut Pushidrosal, maupun keputusan komandan.</p>`;
+}
+
+// ===== Fase 2: modal konfirmasi profil kapal =====
+$('vmGo').addEventListener('click', () => { $('vesselModal').hidden = true; goStage('route'); });
+$('vmReview').addEventListener('click', () => { $('vesselModal').hidden = true; });
+$('vesselModal').addEventListener('click', e => { if (e.target === $('vesselModal')) $('vesselModal').hidden = true; });
 
 // ---------- boot ----------
 if (!S.wps.length) { S.wps = PRESETS[0].wps.map(w => w.slice()); $('preset').value = '0'; }
