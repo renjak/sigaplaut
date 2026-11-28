@@ -33,9 +33,32 @@ header{background:linear-gradient(135deg,#0A2A4E,#145DA0);color:#fff;padding:max
 header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.16em}
 header p{margin:0;color:#bcd8ef;font-size:12.5px;letter-spacing:.01em}
 header .mark{width:36px;height:36px;flex:none;filter:drop-shadow(0 2px 6px rgba(7,27,53,.3))}
-main{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
-#map{height:42vh;min-height:280px;background:#dbe8f3;border-bottom:1px solid var(--line2)}
-.panel{padding:16px max(4vw,16px) 88px;display:grid;gap:14px;background:var(--bg)}
+main{display:block;max-width:960px;margin:0 auto}
+#map{height:48vh;min-height:300px;background:#dbe8f3;border-bottom:1px solid var(--line2)}
+.panel{padding:16px max(4vw,16px) 104px;display:grid;gap:14px;background:var(--bg)}
+/* ===== Workflow: stepper + one-stage-at-a-time gating + action bar ===== */
+.stepper{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line2);padding:8px max(3vw,10px);overflow-x:auto;position:sticky;top:0;z-index:30;scrollbar-width:none}
+.stepper::-webkit-scrollbar{display:none}
+.step{flex:1 0 auto;min-width:76px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 6px;border:0;background:none;color:var(--muted);font-size:10.5px;font-weight:600;cursor:pointer;border-radius:10px;letter-spacing:.02em}
+.step .num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--inset);color:var(--muted);font-size:12px;border:2px solid var(--line2);transition:background .2s,border-color .2s}
+.step.active{color:var(--ocean)}.step.active .num{background:var(--sea);color:#fff;border-color:var(--sea)}
+.step.done{color:var(--navy)}.step.done .num{background:var(--g);color:#fff;border-color:var(--g)}
+.step.stale{color:#8a5a00}.step.stale .num{background:var(--a);color:#3a2b00;border-color:var(--a)}
+.step.locked{opacity:.45;cursor:not-allowed}
+.step:focus-visible{outline:2px solid var(--sea);outline-offset:1px}
+main[data-stage] [data-st]{display:none}
+main[data-stage="vessel"] [data-st~="vessel"],main[data-stage="route"] [data-st~="route"],main[data-stage="calc"] [data-st~="calc"],main[data-stage="intel"] [data-st~="intel"],main[data-stage="summary"] [data-st~="summary"]{display:block}
+main[data-stage] #map{display:none}
+main[data-stage="route"] #map,main[data-stage="intel"] #map{display:block}
+.actionbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;gap:10px;align-items:center;padding:10px max(4vw,16px);padding-bottom:calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line2)}
+.actionbar .spacer{flex:1}
+.actionbar button{min-width:110px}
+.actionbar .hintx{font-size:11px;color:var(--muted);flex:1;min-width:0}
+.voy{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5em,1fr));gap:8px;margin:4px 0 2px}
+.voy div{background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.voy span{display:block;font-size:11px;color:var(--muted)}
+.voy b{font-size:17px;color:var(--navy);font-variant-numeric:tabular-nums}
+.stageintro{font-size:12.5px;color:var(--muted);margin:0 0 6px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 .card h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
 .card h2::before{content:"";width:3px;height:15px;border-radius:2px;background:var(--sea);flex:none}
@@ -79,8 +102,9 @@ code{font-size:12px;background:var(--ice);color:var(--ocean);padding:1px 5px;bor
 #ocrStatus{color:var(--ocean)}
 #ocrStatus.bad{color:#b4322c}
 @media print{
- header,#map,.noprint,.bnav,#splash,#bmkgCard details,.row,.win,.legend,footer a[href]::after{display:none!important}
+ header,#map,.noprint,.stepper,.actionbar,#splash,#bmkgCard details,.row,.win,.legend,footer a[href]::after{display:none!important}
  main{display:block} .panel{max-height:none;overflow:visible;padding:0;background:#fff}
+ main[data-stage] [data-st]{display:block!important}
  .card{break-inside:avoid;border:0;padding:8px 0;box-shadow:none;background:#fff}
  .card h2::before{display:none}
  body{background:#fff;color:#000;font-size:12px} pre{background:#fff;color:#000;border:1px solid #999}
@@ -150,10 +174,7 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
 .bnav a svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
 .bnav a.active{color:var(--sea)}
 @media(min-width:960px){
- main{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}
- #map{height:calc(100vh - 62px);position:sticky;top:0;border-bottom:0;border-right:1px solid var(--line2)}
- .panel{max-height:calc(100vh - 62px);overflow-y:auto;padding-bottom:24px}
- .bnav{display:none}
+ #map{height:52vh}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}#splash .bar,#splash .wrap{animation:none}#splash{transition:none}}
 </style>
@@ -171,13 +192,21 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
  <svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="16" fill="#1b6fba"/><path d="M4 20c3 0 3-3 6.5-3S14 20 17 20s3-3 6.5-3S27 20 30 20v4c-3 0-3-3-6.5-3S20 24 17 24s-3-3-6.5-3S7 24 4 24z" fill="#cfe6fb"/><path d="M17 6l5 9h-10z" fill="#fff"/></svg>
  <div><h1>SIGAP LAUT</h1><p>Intelijen pelayaran &amp; peringatan dini</p></div>
 </header>
-<main>
+<nav class="stepper" id="stepper" aria-label="Alur kerja operasi">
+ <button type="button" class="step" data-go="vessel"><span class="num">1</span>KAPAL</button>
+ <button type="button" class="step" data-go="route"><span class="num">2</span>RUTE</button>
+ <button type="button" class="step" data-go="calc"><span class="num">3</span>HITUNG</button>
+ <button type="button" class="step" data-go="intel"><span class="num">4</span>INTELIJEN</button>
+ <button type="button" class="step" data-go="summary"><span class="num">5</span>RINGKASAN</button>
+</nav>
+<main data-stage="vessel">
  <div id="map" role="region" aria-label="Peta rute"></div>
  <div class="panel">
   <div class="msg" id="msg" role="alert"></div>
 
-  <section class="card noprint" id="shipCard">
+  <section class="card noprint" id="shipCard" data-st="vessel">
    <h2>Data teknis kapal</h2>
+   <p class="stageintro">Isi profil operasional kapal yang diperlukan untuk analisis risiko &amp; peringatan dini. Nilai kosong bisa diperkirakan dari ukuran kapal (bertanda kuning, wajib diperiksa).</p>
    <div id="shipView" hidden>
     <div class="shipsum" id="shipSum"></div>
     <button type="button" class="ghost" id="editShip">Ubah data kapal</button>
@@ -209,21 +238,22 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
    </form>
   </section>
 
-  <section class="card" id="secStatus">
+  <section class="card" id="secStatus" data-st="intel">
    <h2>Status rute</h2>
    <div id="status"><div class="hint">Isi data teknis kapal untuk mulai.</div></div>
    <p class="hint" id="meta"></p>
   </section>
 
-  <section class="card">
-   <h2>Jendela berangkat terbaik</h2>
+  <section class="card" data-st="intel">
+   <h2>Jendela berangkat optimal</h2>
    <div class="legend"><span><i class="g"></i>Aman</span><span><i class="a"></i>Waspada</span><span><i class="r"></i>Tidak disarankan</span><span><i class="x"></i>Di luar jangkauan data</span></div>
    <p class="hint" id="winFor"></p>
    <div class="win" id="win"></div>
   </section>
 
-  <section class="card" id="secPlan">
-   <h2>Rencana pelayaran</h2>
+  <section class="card" id="secPlan" data-st="route">
+   <h2>Perencanaan rute</h2>
+   <p class="stageintro">Masukkan koordinat waypoint berurutan (ketuk peta, isi manual, atau impor berkas). Peta memperbarui rute seketika.</p>
    <div class="row">
     <label style="flex:1 1 180px">Contoh rute
      <select id="preset"></select></label>
@@ -241,26 +271,31 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
     <button type="button" class="ghost" id="expGeo">Ekspor GeoJSON</button>
    </div>
    <p class="hint">Ketuk peta untuk menambah titik. Koordinat: desimal (-7.25) atau derajat-menit (7°15'S, 112°45'E), WGS84. Kolom "kn" = kecepatan ruas dari titik itu ke titik berikutnya (kosong = kecepatan rencana). CSV: kolom <code>seq,name,lat,lon,speed_kn</code> (pemisah koma atau titik koma). GeoJSON: koordinat [bujur, lintang]. Berkas yang tidak valid ditolak utuh, tidak diperbaiki otomatis.</p>
-   <div class="row" style="margin-top:12px">
+  </section>
+
+  <section class="card" id="secCalc" data-st="calc">
+   <h2>Perhitungan pelayaran</h2>
+   <p class="stageintro">Jarak, durasi, dan estimasi tiba dihitung geodesik (WGS84) dari rute &amp; kecepatan rencana. Lanjut ke intelijen untuk prakiraan cuaca sepanjang rute.</p>
+   <div class="row">
     <label style="flex:1 1 190px">Berangkat (WIB)<input type="datetime-local" id="depart"></label>
     <label style="flex:1 1 90px">Kecepatan rencana (knot)<input type="number" id="speed" min="2" max="45" step="0.5"></label>
     <label style="flex:1 1 90px">Margin aman (m)<input type="number" id="margin" min="0" max="2" step="0.1" value="0.5"></label>
     <label style="flex:1 1 90px">Koridor peringatan (NM)<input type="number" id="corr" min="1" max="50" step="1" value="10"></label>
    </div>
-   <div class="row" style="margin-top:12px">
-    <button type="button" class="primary" id="calc" style="flex:1">Hitung prakiraan rute</button>
-   </div>
+   <div class="voy" id="voyOverview"></div>
+   <p class="hint" id="voyNote"></p>
   </section>
 
-  <section class="card">
-   <h2>Detail per titik</h2>
+  <section class="card" data-st="intel">
+   <h2>Intelijen per waypoint</h2>
    <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input type="checkbox" id="allPts" style="width:20px;height:20px"> Tampilkan titik bantu tiap 20 NM</label>
    <div class="scroll"><table id="tbl"><thead><tr><th>Titik</th><th>Tiba (WIB)</th><th>Gel. (m)</th><th>Angin</th><th>Arus</th><th>Status</th><th>Haluan</th><th>Ruas (NM)</th></tr></thead><tbody></tbody></table></div>
    <p class="hint">Gel. = tinggi gelombang signifikan, rentang antarmodel (terendah–tertinggi). Angin dan arus dalam knot. Status per titik (titik berwarna) menilai cuaca di titik itu: gelombang tertinggi + margin, serta batas angin dan arus kapal. Bahaya kedangkalan dinilai per ruas, lihat "Status rute". Haluan = haluan sejati awal ke titik berikutnya; jarak geodesik WGS84.</p>
   </section>
 
-  <section class="card">
-   <h2>Briefing untuk komandan</h2>
+  <section class="card" data-st="summary">
+   <h2>Ringkasan operasi</h2>
+   <p class="stageintro">Laporan ringkas tingkat komando dari profil kapal, rute, perhitungan, dan intelijen. Alat bantu keputusan — bukan pengganti informasi resmi BMKG/Pushidrosal &amp; keputusan komandan.</p>
    <pre id="brief">–</pre>
    <div class="row">
     <button type="button" id="copy">Salin briefing</button>
@@ -269,7 +304,7 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
    </div>
   </section>
 
-  <section class="card warn" id="bmkgCard">
+  <section class="card warn" id="bmkgCard" data-st="intel">
    <h2>Peringatan dini cuaca BMKG (langsung)</h2>
    <div id="bmkgList"><div class="hint">Mengambil peringatan dari BMKG…</div></div>
    <p class="hint">Sumber: peringatan dini cuaca BMKG (format CAP, diperbarui berkala). Peringatan ini untuk cuaca ekstrem jangka pendek (beberapa jam) di darat dan pesisir. Peringatan gelombang resmi BMKG lihat <a href="https://www.bmkg.go.id/cuaca/maritim">bmkg.go.id/cuaca/maritim</a>.</p>
@@ -280,13 +315,7 @@ footer{padding:16px max(4vw,16px) 96px;color:var(--muted);font-size:12px;border-
  Peringatan dini cuaca: BMKG. Gelombang: ECMWF WAM, NOAA GFS-Wave, Météo-France MFWAM; angin: ECMWF IFS, NOAA GFS, DWD ICON; arus: Météo-France — melalui <a href="https://open-meteo.com/">Open-Meteo.com</a> (CC BY 4.0, gratis untuk non-komersial). Gelombang & arus+pasut resmi: <a href="https://marine.copernicus.eu/">Copernicus Marine Service</a> (bila di-ingest; wajib atribusi). Angin cadangan: <a href="https://api.met.no/">MET Norway</a> (CC BY 4.0). Kedalaman: ETOPO 2022, NOAA NCEI (domain publik), bukan untuk navigasi. Daftar pelabuhan: BMKG. Peta: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
  Alat bantu perencanaan keselamatan pelayaran — bukan pengganti informasi resmi BMKG, peta laut resmi (Pushidrosal), maupun keputusan komandan. Koordinat dikirim ke Open-Meteo lewat server; versi operasional dijalankan di server internal agar rute tidak keluar.
 </footer>
-<nav class="bnav" aria-label="Navigasi">
- <a href="#" data-to="top" class="active" aria-label="Peta"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>Peta</a>
- <a href="#shipCard" data-to="shipCard" aria-label="Kapal"><svg viewBox="0 0 24 24"><path d="M3 15l9-3 9 3-2.5 5.5a14 14 0 0 1-13 0L3 15Z"/><path d="M12 12V5M6 9l6-2 6 2"/></svg>Kapal</a>
- <a href="#secPlan" data-to="secPlan" aria-label="Rute"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/></svg>Rute</a>
- <a href="#secStatus" data-to="secStatus" aria-label="Status"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"/><path d="m9 12 2 2 4-4"/></svg>Status</a>
- <a href="#bmkgCard" data-to="bmkgCard" aria-label="Peringatan"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></svg>Peringatan</a>
-</nav>
+<div class="actionbar" id="actionbar" role="group" aria-label="Tindakan tahap"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/lib/geo.js"></script>
@@ -391,6 +420,7 @@ $('shipForm').addEventListener('submit', e => {
  if (s.name) upsertShip(s);                 // simpan ke perpustakaan kapal (hanya bila dinamai)
  $('speed').value = s.speed;
  showShip(); compute();
+ refreshWF(); if (WF.stage === 'vessel') goStage('route');
 });
 SHIP_FIELDS.forEach(([id, k]) => $(id).addEventListener('input', () => { $(id).classList.remove('bad', 'est'); if (($(id).value || '').trim()) SRC[k] = 'manual'; else delete SRC[k]; $('shipErr').textContent = ''; }));
 // Tombol: isi field kosong dengan perkiraan dari data yang sudah ada (tanpa foto).
@@ -575,7 +605,7 @@ const nextHour = () => Math.ceil(Date.now() / 3600e3) * 3600e3;
 const toLocalInput = ms => new Date(ms + 7 * 3600e3).toISOString().slice(0, 16);
 const fromLocalInput = s => Date.parse(s + ':00+07:00');
 $('depart').value = toLocalInput(nextHour());
-['depart', 'speed', 'margin', 'allPts', 'corr'].forEach(id => $(id).addEventListener('change', () => { renderWarnings(); compute(); }));
+['depart', 'speed', 'margin', 'allPts', 'corr'].forEach(id => $(id).addEventListener('change', () => { renderWarnings(); compute(); renderVoyage(); }));
 
 // ---------- data ----------
 function normalize(j) {
@@ -704,8 +734,9 @@ const segName = r => `WP${r.p.seg + 1}–WP${r.p.seg + 2}`;
 function afterRouteChange(fromPreset) {
  if (!fromPreset) $('preset').value = String(PRESETS.length - 1);
  save(); renderWps(); drawRoute(); renderWarnings();
- if (keyOf(buildSamples(S.wps)) !== S.dataKey) { $('status').innerHTML = '<div class="hint">Rute berubah. Tekan "Hitung prakiraan rute".</div>'; $('meta').textContent = ''; }
+ if (keyOf(buildSamples(S.wps)) !== S.dataKey) { $('status').innerHTML = '<div class="hint">Rute berubah. Buka tahap Intelijen untuk mengambil prakiraan terbaru.</div>'; $('meta').textContent = ''; }
  else compute();
+ refreshWF();
 }
 
 function drawRoute(rows) {
@@ -729,7 +760,7 @@ async function calc() {
  if (!vr.ok) { showMsg('Rute belum valid: ' + vr.errors.join(' ')); return; }
  if (S.wps.length > MAX_WP) { showMsg(`Terlalu banyak waypoint (${S.wps.length}); maksimal ${MAX_WP}. Bagi rute menjadi beberapa leg.`); return; }
  if (S.samples.length > MAX_SAMPLES) { showMsg(`Rute terlalu panjang: ${S.samples.length} titik prakiraan, maksimal ${MAX_SAMPLES} (waypoint + titik bantu tiap 20 NM). Bagi menjadi beberapa leg.`); return; }
- const btn = $('calc'); btn.disabled = true; btn.textContent = 'Mengambil prakiraan…';
+ WF.loading = true; renderActionbar(); $('status').innerHTML = '<div class="hint">Mengambil prakiraan cuaca sepanjang rute…</div>';
  try {
   S.data = await fetchData(S.samples);
   S.dataKey = keyOf(S.samples);
@@ -739,9 +770,8 @@ async function calc() {
   compute();
  } catch (e) {
   showMsg('Gagal mengambil prakiraan: ' + e.message + (S.data ? ' Menampilkan data tersimpan terakhir.' : ''));
- } finally { btn.disabled = false; btn.textContent = 'Hitung prakiraan rute'; }
+ } finally { WF.loading = false; refreshWF(); }
 }
-$('calc').addEventListener('click', calc);
 
 function compute() {
  S.samples = buildSamples(S.wps);
@@ -870,7 +900,7 @@ $('impFile').addEventListener('change', async e => {
  S.meta = r.list.map(w => ({ name: (w.name || '').slice(0, 40), speed: w.speed ?? null }));
  afterRouteChange();
  if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 });
- showMsg(`Impor "${f.name}": ${S.wps.length} waypoint dimuat. Tekan "Hitung prakiraan rute".` + (v.warnings.length ? ' Catatan: ' + v.warnings.slice(0, 4).join(' ') : ''));
+ showMsg(`Impor "${f.name}": ${S.wps.length} waypoint dimuat. Lanjut ke tahap Hitung lalu Intelijen.` + (v.warnings.length ? ' Catatan: ' + v.warnings.slice(0, 4).join(' ') : ''));
 });
 $('expCsv').addEventListener('click', () => { if (S.wps.length) download(`sigap-laut-rute-${stamp()}.csv`, WIO.toCsv(wpRows()), 'text/csv'); });
 $('expGeo').addEventListener('click', () => {
@@ -878,7 +908,7 @@ $('expGeo').addEventListener('click', () => {
 });
 // Laporan analisis per titik: jenis nilai (prakiraan/kosong), sumber, jam ambil. Semua waktu UTC (ISO 8601).
 $('expRep').addEventListener('click', () => {
- const L_ = S.last; if (!L_) { showMsg('Belum ada analisis. Tekan "Hitung prakiraan rute".'); return; }
+ const L_ = S.last; if (!L_) { showMsg('Belum ada analisis. Buka tahap Intelijen untuk mengambil prakiraan.'); return; }
  const q = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
  const kind = v => v === undefined ? 'di_luar_jangkauan' : v === null ? 'kosong' : 'prakiraan';
  const head = ['titik', 'jarak_dari_awal_nm', 'lat', 'lon', 'eta_utc', 'gelombang_maks_m', 'gelombang_min_m', 'jenis_gelombang', 'angin_kn', 'hembusan_kn', 'jenis_angin', 'arus_kn', 'status_titik', 'model_gelombang', 'model_angin', 'diambil_utc'];
@@ -890,6 +920,66 @@ $('expRep').addEventListener('click', () => {
 });
 $('printRep').addEventListener('click', () => window.print());
 
+// ===== Alur kerja lima tahap: KAPAL → RUTE → HITUNG → INTELIJEN → RINGKASAN =====
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const STAGES = ['vessel', 'route', 'calc', 'intel', 'summary'];
+const mainEl = document.querySelector('main');
+let WF = { stage: 'vessel', loading: false };
+try { const w = JSON.parse(localStorage.getItem('sl-wf') || 'null'); if (w && STAGES.includes(w.stage)) WF.stage = w.stage; } catch (e) {}
+const validRoute = () => S.wps.length >= 2 && S.wps.length <= MAX_WP && WIO.validate(S.wps.map(w => ({ lat: w[0], lon: w[1] }))).ok;
+const dataFresh = () => !!(S.data && S.dataKey && keyOf(buildSamples(S.wps)) === S.dataKey && S.wps.length >= 2);
+const canReach = s => s === 'vessel' ? true : s === 'route' ? !!S.ship : (s === 'calc' || s === 'intel') ? (!!S.ship && validRoute()) : dataFresh();
+const stageDone = s => s === 'vessel' ? !!S.ship : s === 'route' ? validRoute() : s === 'calc' ? validRoute() : dataFresh();
+function renderStepper() {
+ document.querySelectorAll('.step').forEach(b => {
+  const s = b.dataset.go; b.classList.remove('active', 'done', 'stale', 'locked');
+  if (s === WF.stage) b.classList.add('active');
+  else if (s === 'intel' && S.data && !dataFresh()) b.classList.add('stale');
+  else if (stageDone(s)) b.classList.add('done');
+  else if (!canReach(s)) b.classList.add('locked');
+  b.setAttribute('aria-current', s === WF.stage ? 'step' : 'false');
+ });
+}
+function btnF(to, enabled, label) { return `<button type="button" class="primary" id="abFwd" data-to="${to}"${enabled ? '' : ' disabled'}>${esc(label)}</button>`; }
+function renderActionbar() {
+ const s = WF.stage, i = STAGES.indexOf(s);
+ const back = i > 0 ? '<button type="button" id="abBack">← Kembali</button>' : '';
+ let fwd = '';
+ if (s === 'vessel') fwd = btnF('route', !!S.ship, S.ship ? 'Lanjut ke rute →' : 'Simpan data kapal dulu');
+ else if (s === 'route') fwd = btnF('calc', validRoute(), validRoute() ? 'Lanjut ke perhitungan →' : 'Butuh ≥2 waypoint valid');
+ else if (s === 'calc') fwd = btnF('intel', validRoute() && !WF.loading, WF.loading ? 'Mengambil…' : (dataFresh() ? 'Lanjut ke intelijen →' : 'Hitung & ambil prakiraan →'));
+ else if (s === 'intel') fwd = btnF('summary', dataFresh() && !WF.loading, WF.loading ? 'Mengambil…' : (dataFresh() ? 'Lanjut ke ringkasan →' : 'Belum ada prakiraan'));
+ else if (s === 'summary') fwd = '<button type="button" class="primary" id="abCopy">Salin ringkasan</button>';
+ $('actionbar').innerHTML = back + '<span class="spacer"></span>' + fwd;
+ if ($('abBack')) $('abBack').onclick = () => goStage(STAGES[i - 1]);
+ if ($('abFwd')) $('abFwd').onclick = () => goStage($('abFwd').dataset.to);
+ if ($('abCopy')) $('abCopy').onclick = () => $('copy').click();
+}
+function renderVoyage() {
+ const el = $('voyOverview'); if (!el) return;
+ if (S.wps.length < 2) { el.innerHTML = '<div class="hint">Butuh ≥2 waypoint (tahap Rute).</div>'; $('voyNote').textContent = ''; return; }
+ const segs = SR.segments(S.wps), total = segs.reduce((a, g) => a + g.nm, 0), P = plan();
+ let hours = 0; segs.forEach((g, i) => { hours += g.nm / P.spd(i); });
+ const arrive = P.depart + hours * 3600e3, ok = Number.isFinite(P.depart);
+ const items = [['Jarak total', Math.round(total) + ' NM'], ['Waypoint', String(S.wps.length)], ['Kecepatan rencana', fmt1(P.base) + ' kn'],
+  ['Durasi', '±' + fmt1(hours) + ' jam'], ['Berangkat', ok ? fmtT(P.depart) + ' WIB' : '–'], ['Tiba (est.)', ok ? fmtT(arrive) + ' WIB' : '–']];
+ el.innerHTML = items.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+ $('voyNote').textContent = 'Estimasi geodesik WGS84; kecepatan per ruas dipakai bila diisi. Waktu tiba belum memperhitungkan cuaca/arus — lihat tahap Intelijen.';
+}
+function refreshWF() { renderStepper(); renderActionbar(); if (mainEl.dataset.stage === 'calc') renderVoyage(); }
+async function ensureIntel() { if (validRoute() && !dataFresh() && !WF.loading) await calc(); else { compute(); refreshWF(); } }
+function goStage(s) {
+ if (!STAGES.includes(s) || !canReach(s)) { refreshWF(); return; }
+ WF.stage = s; try { localStorage.setItem('sl-wf', JSON.stringify({ stage: s })); } catch (e) {}
+ mainEl.dataset.stage = s;
+ renderStepper(); renderActionbar();
+ scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+ if (s === 'route' || s === 'intel') setTimeout(() => { map.invalidateSize(); if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30], maxZoom: 11 }); }, 80);
+ if (s === 'calc') renderVoyage();
+ if (s === 'intel') ensureIntel();
+}
+document.querySelectorAll('.step').forEach(b => b.addEventListener('click', () => goStage(b.dataset.go)));
+
 // ---------- boot ----------
 if (!S.wps.length) { S.wps = PRESETS[0].wps.map(w => w.slice()); $('preset').value = '0'; }
 else { const pi = PRESETS.findIndex(p => JSON.stringify(p.wps) === JSON.stringify(S.wps)); $('preset').value = String(pi >= 0 ? pi : PRESETS.length - 1); }
@@ -897,30 +987,17 @@ $('speed').value = S.ship ? S.ship.speed : 14;
 fillShipForm(); showShip(); renderSaved(); renderWps(); drawRoute();
 if (S.wps.length > 1) map.fitBounds(S.wps, { padding: [30, 30] });
 if (S.data && keyOf(buildSamples(S.wps)) === S.dataKey) compute();
-calc();
+// Mulai pada tahap tersimpan; mundur bila prasyaratnya belum terpenuhi. Prakiraan diambil saat mencapai Intelijen.
+let initStage = WF.stage;
+while (!canReach(initStage) && STAGES.indexOf(initStage) > 0) initStage = STAGES[STAGES.indexOf(initStage) - 1];
+WF.stage = initStage; mainEl.dataset.stage = initStage;
+goStage(initStage);
 loadWarnings();
 
 // ---------- splash ----------
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function hideSplash() { const s = $('splash'); if (!s) return; s.classList.add('hide'); setTimeout(() => s.remove(), reduceMotion ? 0 : 600); }
 setTimeout(hideSplash, reduceMotion ? 0 : 1300);
 addEventListener('pointerdown', hideSplash, { once: true });
-
-// ---------- navigasi bawah (mobile): gulir ke bagian + sorot yang terlihat ----------
-const navLinks = [...document.querySelectorAll('.bnav a')];
-navLinks.forEach(a => a.addEventListener('click', e => {
- e.preventDefault();
- const to = a.dataset.to;
- if (to === 'top') { scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); map.invalidateSize(); }
- else { const el = $(to); if (el) el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' }); }
-}));
-if ('IntersectionObserver' in window) {
- const secs = [['top', $('map')], ['shipCard', $('shipCard')], ['secPlan', $('secPlan')], ['secStatus', $('secStatus')], ['bmkgCard', $('bmkgCard')]];
- const io = new IntersectionObserver(ents => {
-  ents.forEach(en => { if (en.isIntersecting) { const id = secs.find(s => s[1] === en.target); if (id) { navLinks.forEach(a => a.classList.toggle('active', a.dataset.to === id[0])); } } });
- }, { rootMargin: '-45% 0px -45% 0px' });
- secs.forEach(s => s[1] && io.observe(s[1]));
-}
 }
 </script>
 <script>/* PWA: daftarkan service worker agar bisa diinstal & shell tersimpan luring */

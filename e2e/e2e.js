@@ -85,15 +85,20 @@ async function run(browser, sc, vp) {
     if (u.includes('/api/forecast') && r.status() === 200) r.json().then(j => { forecastJson = j; }).catch(() => {});
   });
 
-  await page.goto(BASE + BYPASS_Q, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.leaflet-container .leaflet-tile-loaded', { timeout: 30000 });
+  // Navigasi antar tahap lewat stepper, lalu tunggu tahap aktif.
+  const step = async name => { await page.click(`.step[data-go="${name}"]`); await page.waitForFunction(n => document.querySelector('main').dataset.stage === n, name, { timeout: 15000 }); };
 
-  // data kapal
+  await page.goto(BASE + BYPASS_Q, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#shipForm', { state: 'visible', timeout: 30000 });
+  await page.waitForSelector('#splash', { state: 'detached', timeout: 6000 }).catch(() => {});
+
+  // TAHAP 1 — KAPAL (simpan lalu auto-lanjut ke Rute)
   for (const [id, v] of Object.entries(sc.ship)) await page.fill('#' + id, v);
   await page.click('#shipForm button[type=submit]');
-  await page.waitForSelector('#shipView:not([hidden])');
+  await page.waitForFunction(() => document.querySelector('main').dataset.stage === 'route', null, { timeout: 15000 });
+  await page.waitForSelector('.leaflet-container .leaflet-tile-loaded', { timeout: 30000 });
 
-  // rute
+  // TAHAP 2 — RUTE
   if (sc.preset != null) {
     await page.selectOption('#preset', sc.preset);
   } else {
@@ -107,9 +112,17 @@ async function run(browser, sc, vp) {
       }
     }
   }
+  // Huruf/sentuh kontrol diperiksa di tahap Rute (banyak isian koordinat yang terlihat).
+  const uxFont = await page.evaluate(() => {
+    const vis = el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+    const small = [...document.querySelectorAll('.panel button, .panel input, .panel select')].filter(vis).filter(el => el.type !== 'checkbox' && el.getBoundingClientRect().height < 40).map(el => el.id || el.className || el.tagName);
+    const tinyFont = [...document.querySelectorAll('input, select')].filter(vis).filter(el => parseFloat(getComputedStyle(el).fontSize) < 16).map(el => el.id || el.tagName);
+    return { small, tinyFont };
+  });
 
-  await page.click('#calc');
-  await page.waitForFunction(() => document.querySelector('#calc').textContent.includes('Hitung') && !document.querySelector('#calc').disabled, null, { timeout: 60000 });
+  // TAHAP 3 — HITUNG, lalu TAHAP 4 — INTELIJEN (prakiraan diambil saat masuk)
+  await step('calc');
+  await step('intel');
   await page.waitForSelector('#status .pill', { timeout: 60000 });
   await page.waitForFunction(() => !/Mengambil/.test(document.querySelector('#bmkgList').textContent), null, { timeout: 60000 });
   await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
@@ -168,12 +181,15 @@ async function run(browser, sc, vp) {
     return { small, tinyFont, count: document.querySelector('#wpCount').textContent, dotsVisible, labels, legsOk, bmkgCorr, encOk, marLink };
   });
 
+  ux.small = uxFont.small; ux.tinyFont = uxFont.tinyFont;   // periksa kontrol tahap Rute, bukan hanya Intelijen
+
   const shot = path.join(OUT, `${sc.id}-${vp.id}.png`);
   await page.screenshot({ path: shot, fullPage: vp.id === 'hp' });
 
-  // Interaksi setelah screenshot: tap peta (HP) dan batas 60 waypoint (desktop).
+  // Interaksi lanjutan (sadar-tahap). #tbl ada di tahap Intelijen; editor WP & impor/ekspor di tahap Rute.
   let tap = null, limit = null; const io = {};
   if (vp.hasTouch) {
+    await step('route');
     const before = await page.locator('#wps .wp').count();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(200);
@@ -182,18 +198,21 @@ async function run(browser, sc, vp) {
     await page.waitForTimeout(300);
     tap = { before, after: await page.locator('#wps .wp').count() };
   } else {
-    // Kecepatan per ruas: WP1 → 5 kn memperlambat semua ETA setelahnya.
+    // Kecepatan per ruas: WP1 → 5 kn memperlambat ETA WP2 (ETA dibaca di tahap Intelijen).
     const etaWp2 = async () => (await page.locator('#tbl tbody tr').nth(1).locator('td').nth(1).textContent());
     const before = await etaWp2();
+    await step('route');
     await page.fill('#wps input[data-i="0"][data-f="speed"]', '5');
     await page.locator('#wps input[data-i="0"][data-f="speed"]').dispatchEvent('change');
     await page.waitForTimeout(300);
+    await step('intel');
     io.speedChanged = before !== await etaWp2();
-    // Kecepatan tidak wajar ditolak tanpa mengubah nilai.
+    // Kecepatan tak wajar ditolak tanpa mengubah nilai (tahap Rute).
+    await step('route');
     await page.fill('#wps input[data-i="1"][data-f="speed"]', '99');
     await page.locator('#wps input[data-i="1"][data-f="speed"]').dispatchEvent('change');
     io.badSpeedRejected = /2–45 knot/.test(await page.locator('#msg').textContent()) && (await page.inputValue('#wps input[data-i="1"][data-f="speed"]')) === '';
-    // Ekspor CSV.
+    // Ekspor CSV (WP1 kini 5 kn).
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#expCsv')]);
     io.exportCsv = fs.readFileSync(await dl.path(), 'utf8');
     // Impor CSV valid (titik koma + koma desimal) lalu CSV dengan duplikat (harus ditolak, rute tetap).
